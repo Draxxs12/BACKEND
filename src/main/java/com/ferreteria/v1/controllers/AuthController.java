@@ -165,6 +165,43 @@ public class AuthController {
         ));
     }
 
+    @PostMapping("/resend-mfa")
+    public ResponseEntity<?> resendMfa(@RequestBody AuthCodeRequest request) {
+        AuthChallenge actual = challengeRepository.findByTokenAndUsedFalse(request.getToken()).orElse(null);
+        if (!valido(actual, AuthChallenge.Type.LOGIN_MFA)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("La solicitud de verificación ya no es válida. Inicia sesión nuevamente.");
+        }
+
+        if (actual.getCreatedAt().plusSeconds(30).isAfter(LocalDateTime.now())) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body("Espera 30 segundos antes de solicitar otro código.");
+        }
+
+        Usuario usuario = usuarioRepository.findByEmail(actual.getEmail()).orElse(null);
+        if (usuario == null || !Boolean.TRUE.equals(usuario.getActivo())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuario no disponible");
+        }
+
+        actual.setUsed(true);
+        challengeRepository.save(actual);
+
+        AuthChallenge nuevoChallenge = crearChallenge(usuario, AuthChallenge.Type.LOGIN_MFA);
+        try {
+            emailService.enviarCodigo(usuario.getEmail(), usuario.getNombre(), challengeCode(nuevoChallenge), false);
+        } catch (Exception e) {
+            challengeRepository.delete(nuevoChallenge);
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body("No se pudo enviar el nuevo código de verificación.");
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "requiresMfa", true,
+                "challengeToken", nuevoChallenge.getToken(),
+                "email", usuario.getEmail(),
+                "message", "Se envió un nuevo código. El código anterior quedó invalidado."
+        ));
+    }
+
     @PostMapping("/verify-mfa")
     public ResponseEntity<?> verifyMfa(@RequestBody AuthCodeRequest request) {
         AuthChallenge challenge = challengeRepository.findByTokenAndUsedFalse(request.getToken()).orElse(null);
