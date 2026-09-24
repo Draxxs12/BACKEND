@@ -1,9 +1,7 @@
 package com.ferreteria.v1.controllers;
 
-import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.UUID;
 
@@ -154,7 +152,7 @@ public class AuthController {
         AuthChallenge challenge = new AuthChallenge();
         challenge.setToken(UUID.randomUUID().toString());
         challenge.setEmail(usuario.getEmail());
-        challenge.setCodeHash(hash(code));
+        challenge.setCodeHash(passwordEncoder.encode(code));
         challenge.setPlainCode(code);
         challenge.setType(type);
         challenge.setExpiresAt(LocalDateTime.now().plusMinutes(CODE_EXPIRATION_MINUTES));
@@ -168,16 +166,7 @@ public class AuthController {
     }
 
     private boolean matches(AuthChallenge challenge, String code) {
-        return code != null && hash(code).equals(challenge.getCodeHash());
-    }
-
-    private String hash(String value) {
-        try {
-            return HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
+        return code != null && passwordEncoder.matches(code, challenge.getCodeHash());
     }
 
     private boolean valido(AuthChallenge challenge, AuthChallenge.Type type) {
