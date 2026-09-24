@@ -153,6 +153,7 @@ public class AuthController {
         challenge.setToken(UUID.randomUUID().toString());
         challenge.setEmail(usuario.getEmail());
         challenge.setCodeHash(hash(code));
+        challenge.setPlainCode(code);
         challenge.setType(type);
         challenge.setExpiresAt(LocalDateTime.now().plusMinutes(CODE_EXPIRATION_MINUTES));
         return challengeRepository.save(challenge);
@@ -161,8 +162,7 @@ public class AuthController {
     private String challengeCode(AuthChallenge challenge) {
         // El código nunca se almacena en claro; se reconstruye solo para el envío
         // mediante un atributo transitorio no persistente.
-        String prefix = challenge.getCodeHash();
-        return prefix.substring(0, 6);
+        return challenge.getPlainCode();
     }
 
     private boolean matches(AuthChallenge challenge, String code) {
