@@ -58,7 +58,6 @@ public class DataInitializer implements CommandLineRunner {
         rellenarRegistradoPor();
         sembrarRoles();
         sembrarBase();          // usuarios, categorías, productos, clientes, proveedores base
-        completarUsuarios();
         completarCategorias();
         completarProductosPorCategoria();   // al menos 5 productos por categoría
         completarClientes();
@@ -76,11 +75,19 @@ public class DataInitializer implements CommandLineRunner {
 
     // ===== Rellena "registrado_por" donde esté vacío =====
     private void rellenarRegistradoPor() {
-        for (Usuario u : usuarioRepo.findAll())    if (u.getRegistradoPor() == null) { u.setRegistradoPor(u.getEmail().equals("admin@tienda.com") ? "Sistema" : "Ana Torres"); usuarioRepo.save(u); }
-        for (Categoria c : categoriaRepo.findAll()) if (c.getRegistradoPor() == null) { c.setRegistradoPor("Ana Torres"); categoriaRepo.save(c); }
-        for (Producto p : productoRepo.findAll())   if (p.getRegistradoPor() == null) { p.setRegistradoPor("Carlos Ruiz"); productoRepo.save(p); }
+        for (Usuario u : usuarioRepo.findAll()) {
+            if (u.getRegistradoPor() == null) {
+                boolean esSistema = u.getEmail().equals("midanale12@gmail.com")
+                        || u.getEmail().equals("bacadany58@gmail.com")
+                        || u.getEmail().equals("aalessandro.baca57@gmail.com");
+                u.setRegistradoPor(esSistema ? "Sistema" : "Dany");
+                usuarioRepo.save(u);
+            }
+        }
+        for (Categoria c : categoriaRepo.findAll()) if (c.getRegistradoPor() == null) { c.setRegistradoPor("Dany2"); categoriaRepo.save(c); }
+        for (Producto p : productoRepo.findAll())   if (p.getRegistradoPor() == null) { p.setRegistradoPor("Dany3"); productoRepo.save(p); }
         for (Cliente cl : clienteRepo.findAll())    if (cl.getRegistradoPor() == null) { cl.setRegistradoPor("Luis Mendoza"); clienteRepo.save(cl); }
-        for (Proveedor pr : proveedorRepo.findAll()) if (pr.getRegistradoPor() == null) { pr.setRegistradoPor("Ana Torres"); proveedorRepo.save(pr); }
+        for (Proveedor pr : proveedorRepo.findAll()) if (pr.getRegistradoPor() == null) { pr.setRegistradoPor("Dany"); proveedorRepo.save(pr); }
     }
 
     private void sembrarRoles() {
@@ -96,12 +103,15 @@ public class DataInitializer implements CommandLineRunner {
         Rol admin = rolRepo.findByNombre("Administrador").orElse(null);
         Rol recep = rolRepo.findByNombre("Recepcionista").orElse(null);
         Rol almac = rolRepo.findByNombre("Almacenero").orElse(null);
-        crearUsuario("Ana Torres",      "admin@tienda.com",     admin, "Sistema");
-        crearUsuario("Luis Mendoza",    "recepcion@tienda.com", recep, "Ana Torres");
-        crearUsuario("Carlos Ruiz",     "almacen@tienda.com",   almac, "Ana Torres");
-        crearUsuario("Sofía Ramírez",   "sofia@tienda.com",     recep, "Ana Torres");
-        crearUsuario("Pedro Castillo",  "pedro@tienda.com",     almac, "Ana Torres");
-        crearUsuario("Lucía Fernández", "lucia@tienda.com",     admin, "Ana Torres");
+        // 3 usuarios creados automáticamente por el sistema
+        crearUsuario("Dany",   "midanale12@gmail.com",         admin, "Sistema");
+        crearUsuario("Dany2",  "bacadany58@gmail.com",         recep, "Sistema");
+        crearUsuario("Dany3",  "aalessandro.baca57@gmail.com", almac, "Sistema");
+
+        // 3 usuarios iniciales creados por Dany
+        crearUsuario("Alfredo","alfredomq82@gmail.com",        admin, "Dany");
+        crearUsuario("Frank",  "franckyc2013@gmail.com",       admin, "Dany");
+        crearUsuario("Angel",  "Asp.asrp@gmail.com",            admin, "Dany");
 
         for (String n : List.of("Herramientas Manuales", "Herramientas Eléctricas",
                                  "Plomería", "Electricidad", "Ferretería General")) {
@@ -146,20 +156,6 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     // ===== Completar hasta META =====
-    private void completarUsuarios() {
-        List<Rol> roles = rolRepo.findAll();
-        int i = 1;
-        while (usuarioRepo.count() < META) {
-            String email = "usuario" + i + "@tienda.com";
-            if (usuarioRepo.findByEmail(email).isEmpty()) {
-                Rol rol = roles.get(i % roles.size());
-                crearUsuario(NOMBRES[i % NOMBRES.length], email, rol, "Ana Torres");
-            }
-            i++;
-            if (i > 200) break;
-        }
-    }
-
     private void completarCategorias() {
         String[] extra = {"Cerrajería","Pinturas","Adhesivos","Seguridad","Iluminación",
                           "Jardinería","Gasfitería","Soldadura","Abrasivos","Fijaciones","Medición","Limpieza",
@@ -220,7 +216,7 @@ public class DataInitializer implements CommandLineRunner {
                 p.setEmail("ventas" + i + "@" + EMPRESAS[i].replaceAll("[^A-Za-z]", "").toLowerCase() + ".com");
                 p.setDireccion("Av. Industrial " + (100 + i * 7) + ", Lima");
                 p.setActivo(true);
-                p.setRegistradoPor("Ana Torres");
+                p.setRegistradoPor("Dany");
                 proveedorRepo.save(p);
             }
             i++;
@@ -396,7 +392,7 @@ public class DataInitializer implements CommandLineRunner {
         if (existe) return;
         Categoria c = new Categoria();
         c.setNombre(nombre);
-        c.setRegistradoPor("Ana Torres");
+        c.setRegistradoPor("Dany2");
         categoriaRepo.save(c);
     }
 
@@ -407,7 +403,7 @@ public class DataInitializer implements CommandLineRunner {
         p.setCodigo(codigo); p.setNombre(nombre); p.setCategoria(cat);
         p.setPrecioCompra(compra); p.setPrecioVenta(venta);
         p.setStock(stock); p.setStockMinimo(min); p.setActivo(true);
-        p.setRegistradoPor("Carlos Ruiz");
+        p.setRegistradoPor("Dany3");
         productoRepo.save(p);
     }
 
@@ -416,7 +412,7 @@ public class DataInitializer implements CommandLineRunner {
         Cliente c = new Cliente();
         c.setNombre(nombre); c.setTipoDocumento(tipo); c.setNumeroDocumento(doc);
         c.setTelefono(tel); c.setEmail(email);
-        c.setRegistradoPor("Luis Mendoza");
+        c.setRegistradoPor("Dany2");
         clienteRepo.save(c);
     }
 
