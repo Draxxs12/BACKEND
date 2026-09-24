@@ -86,7 +86,7 @@ public class DataInitializer implements CommandLineRunner {
         }
         for (Categoria c : categoriaRepo.findAll()) if (c.getRegistradoPor() == null) { c.setRegistradoPor("Dany2"); categoriaRepo.save(c); }
         for (Producto p : productoRepo.findAll())   if (p.getRegistradoPor() == null) { p.setRegistradoPor("Dany3"); productoRepo.save(p); }
-        for (Cliente cl : clienteRepo.findAll())    if (cl.getRegistradoPor() == null) { cl.setRegistradoPor("Luis Mendoza"); clienteRepo.save(cl); }
+        for (Cliente cl : clienteRepo.findAll())    if (cl.getRegistradoPor() == null) { cl.setRegistradoPor("Dany2"); clienteRepo.save(cl); }
         for (Proveedor pr : proveedorRepo.findAll()) if (pr.getRegistradoPor() == null) { pr.setRegistradoPor("Dany"); proveedorRepo.save(pr); }
     }
 
