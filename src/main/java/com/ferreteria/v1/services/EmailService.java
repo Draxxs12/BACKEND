@@ -11,7 +11,6 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.gmail.Gmail;
-import com.google.api.services.gmail.GmailScopes;
 import com.google.api.services.gmail.model.Message;
 import com.google.auth.oauth2.UserCredentials;
 
@@ -24,6 +23,11 @@ public class EmailService {
 
     private static final String GMAIL_USER = "me";
 
+    // Se reutilizan las credenciales y el cliente Gmail durante la vida del backend.
+    // Antes se reconstruían en cada correo y eso obligaba a repetir el flujo OAuth.
+    private volatile UserCredentials credentials;
+    private volatile Gmail gmail;
+    
     @Value("${google.gmail.client-id:}")
     private String clientId;
 
@@ -46,20 +50,8 @@ public class EmailService {
                         + "GOOGLE_GMAIL_REFRESH_TOKEN o GOOGLE_GMAIL_SENDER_EMAIL");
             }
 
-            UserCredentials credentials = UserCredentials.newBuilder()
-                    .setClientId(clientId)
-                    .setClientSecret(clientSecret)
-                    .setRefreshToken(refreshToken)
-                    .build();
-
-            Gmail gmail = new Gmail.Builder(
-                    GoogleNetHttpTransport.newTrustedTransport(),
-                    GsonFactory.getDefaultInstance(),
-                    new HttpCredentialsAdapter(credentials))
-                    .setApplicationName(applicationName)
-                    .build();
-
-            String subject = recuperacion
+            Gmail gmailClient = obtenerGmail();
+                        String subject = recuperacion
                     ? "Ferretería Charito - Recuperación de contraseña"
                     : "Ferretería Charito - Código de verificación";
 
@@ -82,11 +74,47 @@ public class EmailService {
                     .encodeToString(buffer.toByteArray());
 
             Message message = new Message().setRaw(encodedMessage);
-            gmail.users().messages().send(GMAIL_USER, message).execute();
+            gmailClient.users().messages().send(GMAIL_USER, message).execute();
 
         } catch (Exception e) {
             throw new IllegalStateException("No se pudo enviar el correo mediante Gmail API: " + e.getMessage(), e);
         }
+    }
+
+    private Gmail obtenerGmail() throws Exception {
+        UserCredentials creds = credentials;
+
+        if (creds == null) {
+            synchronized (this) {
+                creds = credentials;
+                if (creds == null) {
+                    creds = UserCredentials.newBuilder()
+                            .setClientId(clientId)
+                            .setClientSecret(clientSecret)
+                            .setRefreshToken(refreshToken)
+                            .build();
+
+                    gmail = new Gmail.Builder(
+                            GoogleNetHttpTransport.newTrustedTransport(),
+                            GsonFactory.getDefaultInstance(),
+                            new HttpCredentialsAdapter(creds))
+                            .setApplicationName(applicationName)
+                            .build();
+
+                    credentials = creds;
+                }
+            }
+        }
+
+        // Solo contacta a Google cuando el access token no existe o ya venció.
+        synchronized (creds) {
+            if (creds.getAccessToken() == null || creds.getAccessToken().getExpirationTimeMilliseconds() == null
+                    || creds.getAccessToken().getExpirationTimeMilliseconds() <= System.currentTimeMillis() + 60_000) {
+                creds.refreshAccessToken();
+            }
+        }
+
+        return gmail;
     }
 
     private MimeMessage crearMensaje(String from, String to, String subject, String body) throws Exception {
