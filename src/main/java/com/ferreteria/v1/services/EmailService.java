@@ -108,8 +108,8 @@ public class EmailService {
 
         // Solo contacta a Google cuando el access token no existe o ya venció.
         synchronized (creds) {
-            if (creds.getAccessToken() == null || creds.getAccessToken().getExpirationTimeMilliseconds() == null
-                    || creds.getAccessToken().getExpirationTimeMilliseconds() <= System.currentTimeMillis() + 60_000) {
+            if (creds.getAccessToken() == null || creds.getAccessToken().getExpirationTime() == null
+                    || creds.getAccessToken().getExpirationTime().getTime() <= System.currentTimeMillis() + 60_000) {
                 creds.refreshAccessToken();
             }
         }
