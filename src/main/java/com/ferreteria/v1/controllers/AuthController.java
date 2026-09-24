@@ -104,6 +104,8 @@ public class AuthController {
             emailService.enviarCodigo(usuario.getEmail(), usuario.getNombre(), challengeCode(challenge), true);
         } catch (Exception e) {
             challengeRepository.delete(challenge);
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body("No se pudo enviar el correo de recuperación. Configura el correo del servidor.");
         }
         return ResponseEntity.ok(Map.of(
                 "message", "Si el correo está registrado, recibirás un código de recuperación.",
