@@ -3,6 +3,13 @@
   "configurations": [
     {
       "type": "java",
+      "name": "V1Application",
+      "request": "launch",
+      "mainClass": "V1Application",
+      "projectName": "v1"
+    },
+    {
+      "type": "java",
       "name": "Spring Boot - local",
       "request": "launch",
       "mainClass": "com.ferreteria.v1.V1Application",
