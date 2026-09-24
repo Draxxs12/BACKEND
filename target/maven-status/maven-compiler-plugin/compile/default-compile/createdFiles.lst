@@ -71,6 +71,7 @@ com\ferreteria\v1\repositories\AuthChallengeRepository.class
 com\ferreteria\v1\repositories\ClienteRepository.class
 com\ferreteria\v1\controllers\ProductoController.class
 com\ferreteria\v1\repositories\ProductoRepository.class
+com\ferreteria\v1\controllers\ChangePasswordRequest.class
 com\ferreteria\v1\repositories\CategoriaRepository.class
 com\ferreteria\v1\controllers\RolController.class
 com\ferreteria\v1\V1Application.class
