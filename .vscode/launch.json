@@ -1,14 +1,13 @@
 {
-    "configurations": [
-        {
-            "type": "java",
-            "name": "Spring Boot-V1Application<v1>",
-            "request": "launch",
-            "cwd": "${workspaceFolder}",
-            "mainClass": "com.ferreteria.v1.V1Application",
-            "projectName": "v1",
-            "args": "",
-            "envFile": "${workspaceFolder}/.env"
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Spring Boot - local",
+      "request": "launch",
+      "mainClass": "com.ferreteria.v1.V1Application",
+      "projectName": "v1",
+      "args": "--spring.profiles.active=local"
+    }
+  ]
 }
