@@ -1,5 +1,6 @@
 package com.ferreteria.v1;
-
+import com.ferreteria.v1.exceptions.ValidacionException;
+import com.ferreteria.v1.exceptions.Validador;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
