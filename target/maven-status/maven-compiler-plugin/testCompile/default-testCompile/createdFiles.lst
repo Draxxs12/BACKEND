@@ -1,1 +1,5 @@
+com\ferreteria\v1\services\ProductoServiceTest.class
+com\ferreteria\v1\exceptions\ValidadorTest.class
 com\ferreteria\v1\V1ApplicationTests.class
+com\ferreteria\v1\services\DevolucionServiceTest.class
+com\ferreteria\v1\services\InventarioServiceTest.class
