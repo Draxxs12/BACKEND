@@ -1,4 +1,4 @@
-package com.ferreteria.v1.exceptions;
+package com.ferreteria.v1;
 
 import static org.junit.jupiter.api.Assertions.*;
 

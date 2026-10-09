@@ -50,7 +50,11 @@ public class ProductoService {
         }
     }
 
+    /** Stock crítico: productos activos cuyo stock es menor o igual a SU propio stock mínimo. */
     public List<Producto> productosConStockBajo() {
-        return productoRepository.findByStockLessThanEqualAndActivoTrue(5);
+        return productoRepository.findByActivoTrue().stream()
+                .filter(p -> p.getStock() != null && p.getStockMinimo() != null
+                        && p.getStock() <= p.getStockMinimo())
+                .toList();
     }
 }

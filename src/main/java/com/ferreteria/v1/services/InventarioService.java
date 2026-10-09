@@ -1,5 +1,7 @@
 package com.ferreteria.v1.services;
 
+import com.ferreteria.v1.exceptions.ValidacionException;
+import com.ferreteria.v1.exceptions.Validador;
 import com.ferreteria.v1.models.Inventario;
 import com.ferreteria.v1.models.Producto;
 import com.ferreteria.v1.models.Usuario;
@@ -31,6 +33,11 @@ public class InventarioService {
     /** Ajuste manual de stock: fija el nuevo stock y registra el movimiento. */
     @Transactional
     public Inventario ajustarStock(Integer productoId, Integer nuevoStock, String motivo, Usuario usuario) {
+        if (nuevoStock == null) {
+            throw new ValidacionException("Debes indicar el nuevo stock.");
+        }
+        Validador.noNegativo(nuevoStock, "nuevo stock");
+
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado id=" + productoId));
 

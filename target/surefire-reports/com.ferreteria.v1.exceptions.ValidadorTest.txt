@@ -1,8 +1,8 @@
 -------------------------------------------------------------------------------
 Test set: com.ferreteria.v1.exceptions.ValidadorTest
 -------------------------------------------------------------------------------
-Tests run: 10, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.122 s <<< FAILURE! -- in com.ferreteria.v1.exceptions.ValidadorTest
-com.ferreteria.v1.exceptions.ValidadorTest.documento_rucDe11DigitosDeberiaSerValido -- Time elapsed: 0.012 s <<< FAILURE!
+Tests run: 10, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.115 s <<< FAILURE! -- in com.ferreteria.v1.exceptions.ValidadorTest
+com.ferreteria.v1.exceptions.ValidadorTest.documento_rucDe11DigitosDeberiaSerValido -- Time elapsed: 0.010 s <<< FAILURE!
 org.opentest4j.AssertionFailedError: Unexpected exception thrown: com.ferreteria.v1.exceptions.ValidacionException: El RUC debe tener exactamente 20 dígitos numéricos.
 	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
 	at org.junit.jupiter.api.AssertDoesNotThrow.createAssertionFailedError(AssertDoesNotThrow.java:84)

@@ -39,14 +39,14 @@ public final class Validador {
         }
     }
 
-    /** Documento según el tipo: DNI = 8 dígitos, RUC = 20 dígitos. */
+    /** Documento según el tipo: DNI = 8 dígitos, RUC = 11 dígitos (RUC peruano). */
     public static void documento(String tipo, String numero) {
         if (numero == null || numero.isBlank()) return;
         if ("DNI".equals(tipo) && !numero.matches("\\d{8}")) {
             throw new ValidacionException("El DNI debe tener exactamente 8 dígitos numéricos.");
         }
-        if ("RUC".equals(tipo) && !numero.matches("\\d{20}")) {
-            throw new ValidacionException("El RUC debe tener exactamente 20 dígitos numéricos.");
+        if ("RUC".equals(tipo) && !numero.matches("\\d{11}")) {
+            throw new ValidacionException("El RUC debe tener exactamente 11 dígitos numéricos.");
         }
     }
 }

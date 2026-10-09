@@ -1,0 +1,142 @@
+diff --git a/src/main/java/com/ferreteria/v1/exceptions/Validador.java b/src/main/java/com/ferreteria/v1/exceptions/Validador.java
+index fc11cb8..791a004 100644
+--- a/src/main/java/com/ferreteria/v1/exceptions/Validador.java
++++ b/src/main/java/com/ferreteria/v1/exceptions/Validador.java
+@@ -39,14 +39,14 @@ public final class Validador {
+         }
+     }
+ 
+-    /** Documento según el tipo: DNI = 8 dígitos, RUC = 20 dígitos. */
++    /** Documento según el tipo: DNI = 8 dígitos, RUC = 11 dígitos (RUC peruano). */
+     public static void documento(String tipo, String numero) {
+         if (numero == null || numero.isBlank()) return;
+         if ("DNI".equals(tipo) && !numero.matches("\\d{8}")) {
+             throw new ValidacionException("El DNI debe tener exactamente 8 dígitos numéricos.");
+         }
+-        if ("RUC".equals(tipo) && !numero.matches("\\d{20}")) {
+-            throw new ValidacionException("El RUC debe tener exactamente 20 dígitos numéricos.");
++        if ("RUC".equals(tipo) && !numero.matches("\\d{11}")) {
++            throw new ValidacionException("El RUC debe tener exactamente 11 dígitos numéricos.");
+         }
+     }
+ }
+diff --git a/src/main/java/com/ferreteria/v1/services/DevolucionService.java b/src/main/java/com/ferreteria/v1/services/DevolucionService.java
+index a06c4a4..5ce93b2 100644
+--- a/src/main/java/com/ferreteria/v1/services/DevolucionService.java
++++ b/src/main/java/com/ferreteria/v1/services/DevolucionService.java
+@@ -1,18 +1,23 @@
+ package com.ferreteria.v1.services;
+ 
+ import java.math.BigDecimal;
++import java.util.HashMap;
+ import java.util.List;
++import java.util.Map;
+ 
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ 
++import com.ferreteria.v1.exceptions.ValidacionException;
+ import com.ferreteria.v1.models.DetalleDevolucion;
++import com.ferreteria.v1.models.DetalleVenta;
+ import com.ferreteria.v1.models.Devolucion;
+ import com.ferreteria.v1.models.Inventario;
+ import com.ferreteria.v1.models.Producto;
+ import com.ferreteria.v1.models.Usuario;
+ import com.ferreteria.v1.models.Venta;
++import com.ferreteria.v1.repositories.DetalleVentaRepository;
+ import com.ferreteria.v1.repositories.DevolucionRepository;
+ import com.ferreteria.v1.repositories.InventarioRepository;
+ import com.ferreteria.v1.repositories.ProductoRepository;
+@@ -25,6 +30,7 @@ public class DevolucionService {
+     @Autowired private VentaRepository      ventaRepository;
+     @Autowired private ProductoRepository   productoRepository;
+     @Autowired private InventarioRepository inventarioRepository;
++    @Autowired private DetalleVentaRepository detalleVentaRepository;
+ 
+     public List<Devolucion> listarTodas() {
+         return devolucionRepository.findAllByOrderByCreatedAtDesc();
+@@ -42,6 +48,8 @@ public class DevolucionService {
+         Venta venta = ventaRepository.findById(ventaId)
+                 .orElseThrow(() -> new RuntimeException("Venta no encontrada id=" + ventaId));
+ 
++        validarDetalles(ventaId, detalles);
++
+         Devolucion dev = new Devolucion();
+         dev.setVenta(venta);
+         dev.setUsuario(usuario);
+@@ -86,4 +94,32 @@ public class DevolucionService {
+         dev.getDetalles().addAll(detalles);
+         return devolucionRepository.save(dev);
+     }
++
++    /**
++     * Valida TODAS las líneas antes de modificar stock o guardar algo:
++     * cantidad mayor que 0 y que no supere lo vendido en esa venta.
++     */
++    private void validarDetalles(Integer ventaId, List<DetalleDevolucion> detalles) {
++        Map<Integer, Integer> vendido = new HashMap<>();
++        for (DetalleVenta dv : detalleVentaRepository.findByVentaId(ventaId)) {
++            vendido.merge(dv.getProducto().getId(), dv.getCantidad(), Integer::sum);
++        }
++
++        Map<Integer, Integer> aDevolver = new HashMap<>();
++        for (DetalleDevolucion d : detalles) {
++            if (d.getCantidad() == null || d.getCantidad() <= 0) {
++                throw new ValidacionException("La cantidad a devolver debe ser mayor que 0.");
++            }
++            aDevolver.merge(d.getProducto().getId(), d.getCantidad(), Integer::sum);
++        }
++
++        for (Map.Entry<Integer, Integer> e : aDevolver.entrySet()) {
++            int max = vendido.getOrDefault(e.getKey(), 0);
++            if (e.getValue() > max) {
++                throw new ValidacionException("No se puede devolver " + e.getValue()
++                        + " unidad(es) del producto id=" + e.getKey()
++                        + ": en la venta solo se vendieron " + max + ".");
++            }
++        }
++    }
+ }
+diff --git a/src/main/java/com/ferreteria/v1/services/InventarioService.java b/src/main/java/com/ferreteria/v1/services/InventarioService.java
+index 8d296de..e9e2633 100644
+--- a/src/main/java/com/ferreteria/v1/services/InventarioService.java
++++ b/src/main/java/com/ferreteria/v1/services/InventarioService.java
+@@ -1,5 +1,7 @@
+ package com.ferreteria.v1.services;
+ 
++import com.ferreteria.v1.exceptions.ValidacionException;
++import com.ferreteria.v1.exceptions.Validador;
+ import com.ferreteria.v1.models.Inventario;
+ import com.ferreteria.v1.models.Producto;
+ import com.ferreteria.v1.models.Usuario;
+@@ -31,6 +33,11 @@ public class InventarioService {
+     /** Ajuste manual de stock: fija el nuevo stock y registra el movimiento. */
+     @Transactional
+     public Inventario ajustarStock(Integer productoId, Integer nuevoStock, String motivo, Usuario usuario) {
++        if (nuevoStock == null) {
++            throw new ValidacionException("Debes indicar el nuevo stock.");
++        }
++        Validador.noNegativo(nuevoStock, "nuevo stock");
++
+         Producto producto = productoRepository.findById(productoId)
+                 .orElseThrow(() -> new RuntimeException("Producto no encontrado id=" + productoId));
+ 
+diff --git a/src/main/java/com/ferreteria/v1/services/ProductoService.java b/src/main/java/com/ferreteria/v1/services/ProductoService.java
+index 8093317..c793997 100644
+--- a/src/main/java/com/ferreteria/v1/services/ProductoService.java
++++ b/src/main/java/com/ferreteria/v1/services/ProductoService.java
+@@ -50,7 +50,11 @@ public class ProductoService {
+         }
+     }
+ 
++    /** Stock crítico: productos activos cuyo stock es menor o igual a SU propio stock mínimo. */
+     public List<Producto> productosConStockBajo() {
+-        return productoRepository.findByStockLessThanEqualAndActivoTrue(5);
++        return productoRepository.findByActivoTrue().stream()
++                .filter(p -> p.getStock() != null && p.getStockMinimo() != null
++                        && p.getStock() <= p.getStockMinimo())
++                .toList();
+     }
+ }
+\ No newline at end of file
