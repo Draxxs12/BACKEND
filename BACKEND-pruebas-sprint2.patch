@@ -1,0 +1,1566 @@
+From 9df595a87836c232f650238cce4ff1a328264bb4 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 2 <pruebas@local>
+Date: Mon, 12 Oct 2026 19:46:29 +0000
+Subject: [PATCH] test: pruebas Sprint 2 (tandas 1 y 2)
+
+---
+ .../com/ferreteria/v1/ValidadorExtraTest.java |  51 +++
+ .../controllers/CategoriaControllerTest.java  | 135 ++++++++
+ .../v1/services/ClienteServiceTest.java       | 111 +++++++
+ .../v1/services/CompraServiceTest.java        | 211 +++++++++++++
+ .../DevolucionServiceVinculoTest.java         | 169 ++++++++++
+ .../InventarioServiceListadoTest.java         | 167 ++++++++++
+ .../v1/services/ProductoServiceExtraTest.java |  96 ++++++
+ .../v1/services/ProveedorServiceTest.java     |  95 ++++++
+ .../v1/services/UsuarioServiceTest.java       | 150 +++++++++
+ .../v1/services/VentaServiceTest.java         | 290 ++++++++++++++++++
+ 10 files changed, 1475 insertions(+)
+ create mode 100644 src/test/java/com/ferreteria/v1/ValidadorExtraTest.java
+ create mode 100644 src/test/java/com/ferreteria/v1/controllers/CategoriaControllerTest.java
+ create mode 100644 src/test/java/com/ferreteria/v1/services/ClienteServiceTest.java
+ create mode 100644 src/test/java/com/ferreteria/v1/services/CompraServiceTest.java
+ create mode 100644 src/test/java/com/ferreteria/v1/services/DevolucionServiceVinculoTest.java
+ create mode 100644 src/test/java/com/ferreteria/v1/services/InventarioServiceListadoTest.java
+ create mode 100644 src/test/java/com/ferreteria/v1/services/ProductoServiceExtraTest.java
+ create mode 100644 src/test/java/com/ferreteria/v1/services/ProveedorServiceTest.java
+ create mode 100644 src/test/java/com/ferreteria/v1/services/UsuarioServiceTest.java
+ create mode 100644 src/test/java/com/ferreteria/v1/services/VentaServiceTest.java
+
+diff --git a/src/test/java/com/ferreteria/v1/ValidadorExtraTest.java b/src/test/java/com/ferreteria/v1/ValidadorExtraTest.java
+new file mode 100644
+index 0000000..55778c9
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/ValidadorExtraTest.java
+@@ -0,0 +1,51 @@
++package com.ferreteria.v1;
++
++import static org.junit.jupiter.api.Assertions.*;
++
++import org.junit.jupiter.api.Test;
++
++import com.ferreteria.v1.exceptions.ValidacionException;
++import com.ferreteria.v1.exceptions.Validador;
++
++/** CP-230 (documento con letras) y reglas de correo. */
++class ValidadorExtraTest {
++
++    @Test
++    void documento_dniConLetrasSeRechaza() {
++        assertThrows(ValidacionException.class, () -> Validador.documento("DNI", "1234567A"));
++    }
++
++    @Test
++    void documento_rucConLetrasSeRechaza() {
++        assertThrows(ValidacionException.class, () -> Validador.documento("RUC", "2012345678X"));
++    }
++
++    @Test
++    void documento_nuloOEnBlancoSeIgnora() {
++        assertDoesNotThrow(() -> Validador.documento("DNI", null));
++        assertDoesNotThrow(() -> Validador.documento("DNI", "  "));
++    }
++
++    @Test
++    void documento_rucDe10Y12DigitosSeRechazan_valoresLimite() {
++        assertThrows(ValidacionException.class, () -> Validador.documento("RUC", "2012345678"));
++        assertThrows(ValidacionException.class, () -> Validador.documento("RUC", "201234567890"));
++    }
++
++    @Test
++    void email_formatoValidoSeAcepta() {
++        assertDoesNotThrow(() -> Validador.email("ana@mail.com"));
++    }
++
++    @Test
++    void email_nuloOEnBlancoSeAcepta() {
++        assertDoesNotThrow(() -> Validador.email(null));
++        assertDoesNotThrow(() -> Validador.email(""));
++    }
++
++    @Test
++    void email_sinArrobaOSinDominioSeRechaza() {
++        assertThrows(ValidacionException.class, () -> Validador.email("sin-arroba"));
++        assertThrows(ValidacionException.class, () -> Validador.email("ana@mail"));
++    }
++}
+diff --git a/src/test/java/com/ferreteria/v1/controllers/CategoriaControllerTest.java b/src/test/java/com/ferreteria/v1/controllers/CategoriaControllerTest.java
+new file mode 100644
+index 0000000..870f939
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/controllers/CategoriaControllerTest.java
+@@ -0,0 +1,135 @@
++package com.ferreteria.v1.controllers;
++
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.*;
++
++import java.util.List;
++import java.util.Optional;
++
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.mockito.junit.jupiter.MockitoSettings;
++import org.mockito.quality.Strictness;
++import org.springframework.http.HttpStatus;
++import org.springframework.http.ResponseEntity;
++
++import com.ferreteria.v1.exceptions.ValidacionException;
++import com.ferreteria.v1.models.Categoria;
++import com.ferreteria.v1.repositories.CategoriaRepository;
++import com.ferreteria.v1.services.UsuarioActualService;
++
++/**
++ * HU-S2-18 Listar categorías, HU-S2-19 Registrar categoría, HU-S2-20 Editar categoría (H0051-H0054).
++ * Las categorías no tienen servicio: el controlador habla directo con el repositorio, por eso se prueba aquí.
++ */
++@ExtendWith(MockitoExtension.class)
++@MockitoSettings(strictness = Strictness.LENIENT)
++class CategoriaControllerTest {
++
++    @Mock CategoriaRepository categoriaRepository;
++    @Mock UsuarioActualService usuarioActual;
++    @InjectMocks CategoriaController controller;
++
++    private Categoria categoria(Integer id, String nombre) {
++        Categoria c = new Categoria();
++        c.setId(id);
++        c.setNombre(nombre);
++        return c;
++    }
++
++    // ───────────── HU-S2-18 Listar ─────────────
++    @Test
++    void listar_devuelveTodasLasCategoriasDelRepositorio() {
++        when(categoriaRepository.findAll()).thenReturn(List.of(categoria(1, "Herramientas"), categoria(2, "Pinturas")));
++
++        List<Categoria> r = controller.listar();
++
++        assertEquals(2, r.size());
++        assertEquals("Herramientas", r.get(0).getNombre());
++    }
++
++    @Test
++    void listar_sinCategoriasDevuelveListaVaciaSinError() {
++        when(categoriaRepository.findAll()).thenReturn(List.of());
++
++        assertTrue(controller.listar().isEmpty());
++    }
++
++    @Test
++    void buscar_categoriaExistenteDevuelve200ConLaCategoria() {
++        when(categoriaRepository.findById(1)).thenReturn(Optional.of(categoria(1, "Herramientas")));
++
++        ResponseEntity<Categoria> r = controller.buscar(1);
++
++        assertEquals(HttpStatus.OK, r.getStatusCode());
++        assertEquals("Herramientas", r.getBody().getNombre());
++    }
++
++    @Test
++    void buscar_categoriaInexistenteDevuelve404() {
++        when(categoriaRepository.findById(99)).thenReturn(Optional.empty());
++
++        assertEquals(HttpStatus.NOT_FOUND, controller.buscar(99).getStatusCode());
++    }
++
++    // ───────────── HU-S2-19 Registrar ─────────────
++    @Test
++    void crear_guardaLaCategoriaConElUsuarioQueLaRegistra() {
++        when(usuarioActual.nombreActual()).thenReturn("Dany");
++        when(categoriaRepository.save(any(Categoria.class))).thenAnswer(i -> i.getArgument(0));
++
++        Categoria r = controller.crear(categoria(null, "Pinturas"));
++
++        assertEquals("Pinturas", r.getNombre());
++        assertEquals("Dany", r.getRegistradoPor());
++        verify(categoriaRepository).save(any(Categoria.class));
++    }
++
++    /**
++     * INCIDENCIA ESPERADA (ROJO): hoy el servidor acepta una categoría sin nombre y la guarda;
++     * solo la pantalla Angular lo impide. Debe rechazarse en el servidor (lección 3 del laboratorio).
++     * Corrección sugerida: validar que el nombre no esté en blanco antes del save y lanzar ValidacionException.
++     */
++    @Test
++    void crear_rechazaUnNombreEnBlancoYNoGuarda() {
++        assertThrows(ValidacionException.class, () -> controller.crear(categoria(null, "   ")));
++
++        verify(categoriaRepository, never()).save(any());
++    }
++
++    // ───────────── HU-S2-20 Editar ─────────────
++    @Test
++    void actualizar_usaElIdDeLaRutaAunqueElCuerpoTraigaOtro() {
++        when(usuarioActual.nombreActual()).thenReturn("Dany");
++        when(categoriaRepository.save(any(Categoria.class))).thenAnswer(i -> i.getArgument(0));
++
++        ResponseEntity<Categoria> r = controller.actualizar(5, categoria(77, "Pinturas y barnices"));
++
++        assertEquals(HttpStatus.OK, r.getStatusCode());
++        assertEquals(5, r.getBody().getId());
++        assertEquals("Pinturas y barnices", r.getBody().getNombre());
++    }
++
++    @Test
++    void actualizar_registraAQuienHizoElCambio() {
++        when(usuarioActual.nombreActual()).thenReturn("Ronald");
++        when(categoriaRepository.save(any(Categoria.class))).thenAnswer(i -> i.getArgument(0));
++
++        Categoria r = controller.actualizar(5, categoria(null, "X")).getBody();
++
++        assertEquals("Ronald", r.getRegistradoPor());
++    }
++
++    // ───────────── H0054 Eliminar ─────────────
++    @Test
++    void eliminar_borraPorIdYDevuelve204() {
++        ResponseEntity<Void> r = controller.eliminar(3);
++
++        assertEquals(HttpStatus.NO_CONTENT, r.getStatusCode());
++        verify(categoriaRepository).deleteById(3);
++    }
++}
+diff --git a/src/test/java/com/ferreteria/v1/services/ClienteServiceTest.java b/src/test/java/com/ferreteria/v1/services/ClienteServiceTest.java
+new file mode 100644
+index 0000000..2bb41c2
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/services/ClienteServiceTest.java
+@@ -0,0 +1,111 @@
++package com.ferreteria.v1.services;
++
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.*;
++
++import java.util.List;
++
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.mockito.junit.jupiter.MockitoSettings;
++import org.mockito.quality.Strictness;
++
++import com.ferreteria.v1.exceptions.ValidacionException;
++import com.ferreteria.v1.models.Cliente;
++import com.ferreteria.v1.repositories.ClienteRepository;
++
++/** H0009 a H0012 (clientes, Sprint 1): CP-226 a CP-232. */
++@ExtendWith(MockitoExtension.class)
++@MockitoSettings(strictness = Strictness.LENIENT)
++class ClienteServiceTest {
++
++    @Mock ClienteRepository clienteRepository;
++    @Mock UsuarioActualService usuarioActual;
++    @InjectMocks ClienteService service;
++
++    @BeforeEach
++    void preparar() {
++        when(clienteRepository.save(any(Cliente.class))).thenAnswer(i -> i.getArgument(0));
++        when(usuarioActual.nombreActual()).thenReturn("Admin");
++    }
++
++    private Cliente cliente(Cliente.TipoDocumento tipo, String numero) {
++        Cliente c = new Cliente();
++        c.setNombre("Cliente de prueba");
++        c.setTipoDocumento(tipo);
++        c.setNumeroDocumento(numero);
++        return c;
++    }
++
++    @Test
++    void guardar_dniDe8DigitosSeRegistraConElUsuarioQueLoRegistra() {
++        Cliente r = service.guardar(cliente(Cliente.TipoDocumento.DNI, "12345678"));
++        assertEquals("12345678", r.getNumeroDocumento());
++        assertEquals("Admin", r.getRegistradoPor());
++    }
++
++    @Test
++    void guardar_dniDe7DigitosSeRechazaYNoSeGuarda_valorLimite() {
++        assertThrows(ValidacionException.class,
++                () -> service.guardar(cliente(Cliente.TipoDocumento.DNI, "1234567")));
++        verify(clienteRepository, never()).save(any());
++    }
++
++    @Test
++    void guardar_dniDe9DigitosSeRechaza_valorLimite() {
++        assertThrows(ValidacionException.class,
++                () -> service.guardar(cliente(Cliente.TipoDocumento.DNI, "123456789")));
++    }
++
++    @Test
++    void guardar_rucDe11DigitosEsValido_valorLimite() {
++        assertDoesNotThrow(() -> service.guardar(cliente(Cliente.TipoDocumento.RUC, "20123456789")));
++    }
++
++    @Test
++    void guardar_rucDe10DigitosSeRechaza_valorLimite() {
++        assertThrows(ValidacionException.class,
++                () -> service.guardar(cliente(Cliente.TipoDocumento.RUC, "2012345678")));
++    }
++
++    @Test
++    void guardar_rucDe12DigitosSeRechaza_valorLimite() {
++        assertThrows(ValidacionException.class,
++                () -> service.guardar(cliente(Cliente.TipoDocumento.RUC, "201234567890")));
++    }
++
++    @Test
++    void guardar_documentoConLetrasSeRechaza() {
++        assertThrows(ValidacionException.class,
++                () -> service.guardar(cliente(Cliente.TipoDocumento.DNI, "1234567A")));
++    }
++
++    @Test
++    void guardar_sinDocumentoEsValido() {
++        assertDoesNotThrow(() -> service.guardar(cliente(Cliente.TipoDocumento.DNI, null)));
++    }
++
++    @Test
++    void guardar_correoConFormatoInvalidoSeRechaza() {
++        Cliente c = cliente(Cliente.TipoDocumento.DNI, "12345678");
++        c.setEmail("sin-arroba");
++        assertThrows(ValidacionException.class, () -> service.guardar(c));
++    }
++
++    @Test
++    void listarTodos_sinClientesDevuelveListaVaciaSinError() {
++        when(clienteRepository.findAll()).thenReturn(List.of());
++        assertTrue(service.listarTodos().isEmpty());
++    }
++
++    @Test
++    void buscarPorNombre_delegaEnLaBusquedaDelRepositorio() {
++        when(clienteRepository.findByNombreContainingIgnoreCase("ana")).thenReturn(List.of(new Cliente()));
++        assertEquals(1, service.buscarPorNombre("ana").size());
++    }
++}
+diff --git a/src/test/java/com/ferreteria/v1/services/CompraServiceTest.java b/src/test/java/com/ferreteria/v1/services/CompraServiceTest.java
+new file mode 100644
+index 0000000..db49cd9
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/services/CompraServiceTest.java
+@@ -0,0 +1,211 @@
++package com.ferreteria.v1.services;
++
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.*;
++
++import java.math.BigDecimal;
++import java.util.List;
++import java.util.Optional;
++
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.mockito.junit.jupiter.MockitoSettings;
++import org.mockito.quality.Strictness;
++
++import com.ferreteria.v1.exceptions.ValidacionException;
++import com.ferreteria.v1.models.Compra;
++import com.ferreteria.v1.models.DetalleCompra;
++import com.ferreteria.v1.models.Inventario;
++import com.ferreteria.v1.models.Producto;
++import com.ferreteria.v1.models.Proveedor;
++import com.ferreteria.v1.repositories.CompraRepository;
++import com.ferreteria.v1.repositories.InventarioRepository;
++import com.ferreteria.v1.repositories.ProductoRepository;
++
++/** H0017 a H0019 (compras, Sprint 1): CP-247 a CP-256 y movimientos de stock (CP-095). */
++@ExtendWith(MockitoExtension.class)
++@MockitoSettings(strictness = Strictness.LENIENT)
++class CompraServiceTest {
++
++    @Mock CompraRepository compraRepository;
++    @Mock ProductoRepository productoRepository;
++    @Mock InventarioRepository inventarioRepository;
++    @InjectMocks CompraService service;
++
++    @BeforeEach
++    void preparar() {
++        when(compraRepository.save(any(Compra.class))).thenAnswer(i -> i.getArgument(0));
++        when(compraRepository.count()).thenReturn(0L);
++    }
++
++    private Producto producto(int id, int stock) {
++        Producto p = new Producto();
++        p.setId(id);
++        p.setStock(stock);
++        when(productoRepository.findById(id)).thenReturn(Optional.of(p));
++        return p;
++    }
++
++    private Compra compra(Compra.Estado estado, Producto p, int cantidad, String precio) {
++        Compra c = new Compra();
++        c.setProveedor(new Proveedor());
++        c.setEstado(estado);
++        DetalleCompra d = new DetalleCompra();
++        d.setProducto(p);
++        d.setCantidad(cantidad);
++        d.setPrecioUnitario(new BigDecimal(precio));
++        c.getDetalles().add(d);
++        return c;
++    }
++
++    // ───────────── CP-247: guardar con su total ─────────────
++    @Test
++    void guardar_calculaSubtotalIgvYTotal() {
++        Producto p = producto(5, 10);
++        Compra r = service.guardar(compra(Compra.Estado.Pendiente, p, 5, "20.00"));
++
++        assertEquals(0, new BigDecimal("100.00").compareTo(r.getSubtotal()));
++        assertEquals(0, new BigDecimal("18.00").compareTo(r.getIgv()));
++        assertEquals(0, new BigDecimal("118.00").compareTo(r.getTotal()));
++    }
++
++    @Test
++    void guardar_generaElNumeroDeOrdenCorrelativo() {
++        when(compraRepository.count()).thenReturn(2L);
++        Producto p = producto(5, 10);
++        Compra r = service.guardar(compra(Compra.Estado.Pendiente, p, 1, "10.00"));
++        assertEquals("OC-00003", r.getNumeroOrden());
++    }
++
++    // ───────────── CP-248: stock final = S + Q ─────────────
++    @Test
++    void guardar_compraRecibidaSumaLasUnidadesAlStock_integracion() {
++        Producto p = producto(5, 10);
++        service.guardar(compra(Compra.Estado.Recibida, p, 5, "20.00"));
++        assertEquals(15, p.getStock());
++        verify(productoRepository).save(p);
++    }
++
++    @Test
++    void guardar_compraPendienteNoTocaElStock() {
++        Producto p = producto(5, 10);
++        service.guardar(compra(Compra.Estado.Pendiente, p, 5, "20.00"));
++        assertEquals(10, p.getStock());
++        verify(productoRepository, never()).save(any());
++    }
++
++    @Test
++    void guardar_pasarDePendienteARecibidaSumaElStockUnaSolaVez() {
++        Producto p = producto(5, 10);
++        Compra anterior = new Compra();
++        anterior.setId(1);
++        anterior.setEstado(Compra.Estado.Pendiente);
++        when(compraRepository.findById(1)).thenReturn(Optional.of(anterior));
++
++        Compra c = compra(Compra.Estado.Recibida, p, 5, "20.00");
++        c.setId(1);
++        service.guardar(c);
++
++        assertEquals(15, p.getStock());
++    }
++
++    @Test
++    void guardar_volverAGuardarUnaCompraYaRecibidaNoDuplicaElStock() {
++        Producto p = producto(5, 10);
++        Compra anterior = new Compra();
++        anterior.setId(1);
++        anterior.setEstado(Compra.Estado.Recibida);
++        when(compraRepository.findById(1)).thenReturn(Optional.of(anterior));
++
++        Compra c = compra(Compra.Estado.Recibida, p, 5, "20.00");
++        c.setId(1);
++        service.guardar(c);
++
++        assertEquals(10, p.getStock());
++        verify(productoRepository, never()).save(any());
++    }
++
++    // ───────────── CP-095 / H0059: movimiento de stock (se espera ROJO: CompraService no lo registra) ─────────────
++    @Test
++    void guardar_compraRecibidaRegistraUnMovimientoDeEntrada() {
++        Producto p = producto(5, 10);
++        service.guardar(compra(Compra.Estado.Recibida, p, 5, "20.00"));
++
++        org.mockito.ArgumentCaptor<Inventario> cap = org.mockito.ArgumentCaptor.forClass(Inventario.class);
++        verify(inventarioRepository).save(cap.capture());
++        assertEquals(Inventario.TipoMovimiento.Entrada, cap.getValue().getTipo());
++        assertEquals(5, cap.getValue().getCantidad());
++        assertEquals(10, cap.getValue().getStockAntes());
++        assertEquals(15, cap.getValue().getStockDespues());
++    }
++
++    // ───────────── CP-249 a CP-251: validaciones (se espera ROJO: no existen en el servicio) ─────────────
++    @Test
++    void guardar_rechazaCantidadCero() {
++        Producto p = producto(5, 10);
++        assertThrows(ValidacionException.class,
++                () -> service.guardar(compra(Compra.Estado.Recibida, p, 0, "20.00")));
++    }
++
++    @Test
++    void guardar_rechazaCantidadNegativa_yNoRestaStock() {
++        Producto p = producto(5, 10);
++        assertThrows(ValidacionException.class,
++                () -> service.guardar(compra(Compra.Estado.Recibida, p, -2, "20.00")));
++        assertEquals(10, p.getStock());
++    }
++
++    @Test
++    void guardar_rechazaPrecioDeCompraNegativo() {
++        Producto p = producto(5, 10);
++        assertThrows(ValidacionException.class,
++                () -> service.guardar(compra(Compra.Estado.Pendiente, p, 1, "-5.00")));
++    }
++
++    @Test
++    void guardar_rechazaUnaCompraSinProductos() {
++        Compra c = new Compra();
++        c.setProveedor(new Proveedor());
++        assertThrows(ValidacionException.class, () -> service.guardar(c));
++    }
++
++    @Test
++    void guardar_rechazaUnaCompraSinProveedor() {
++        Producto p = producto(5, 10);
++        Compra c = compra(Compra.Estado.Pendiente, p, 1, "10.00");
++        c.setProveedor(null);
++        assertThrows(ValidacionException.class, () -> service.guardar(c));
++    }
++
++    // ───────────── CP-253 a CP-256: listar y detalle ─────────────
++    @Test
++    void listarTodos_devuelveLasComprasDelRepositorio() {
++        when(compraRepository.findAll()).thenReturn(List.of(new Compra(), new Compra()));
++        assertEquals(2, service.listarTodos().size());
++    }
++
++    @Test
++    void listarTodos_sinComprasDevuelveListaVaciaSinError() {
++        when(compraRepository.findAll()).thenReturn(List.of());
++        assertTrue(service.listarTodos().isEmpty());
++    }
++
++    @Test
++    void buscarPorId_existenteDevuelveLaCompra() {
++        Compra c = new Compra();
++        c.setId(1);
++        when(compraRepository.findById(1)).thenReturn(Optional.of(c));
++        assertSame(c, service.buscarPorId(1));
++    }
++
++    @Test
++    void buscarPorId_inexistenteDevuelveNull() {
++        when(compraRepository.findById(404)).thenReturn(Optional.empty());
++        assertNull(service.buscarPorId(404));
++    }
++}
+diff --git a/src/test/java/com/ferreteria/v1/services/DevolucionServiceVinculoTest.java b/src/test/java/com/ferreteria/v1/services/DevolucionServiceVinculoTest.java
+new file mode 100644
+index 0000000..c154933
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/services/DevolucionServiceVinculoTest.java
+@@ -0,0 +1,169 @@
++package com.ferreteria.v1.services;
++
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.*;
++
++import java.math.BigDecimal;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Optional;
++
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.mockito.junit.jupiter.MockitoSettings;
++import org.mockito.quality.Strictness;
++
++import com.ferreteria.v1.exceptions.ValidacionException;
++import com.ferreteria.v1.models.DetalleDevolucion;
++import com.ferreteria.v1.models.DetalleVenta;
++import com.ferreteria.v1.models.Devolucion;
++import com.ferreteria.v1.models.Producto;
++import com.ferreteria.v1.models.Usuario;
++import com.ferreteria.v1.models.Venta;
++import com.ferreteria.v1.repositories.DetalleVentaRepository;
++import com.ferreteria.v1.repositories.DevolucionRepository;
++import com.ferreteria.v1.repositories.InventarioRepository;
++import com.ferreteria.v1.repositories.ProductoRepository;
++import com.ferreteria.v1.repositories.VentaRepository;
++
++/** CP-052, CP-054, CP-058, CP-060 y CP-062: valor límite, parcial, vínculo con la venta y producto ajeno. */
++@ExtendWith(MockitoExtension.class)
++@MockitoSettings(strictness = Strictness.LENIENT)
++class DevolucionServiceVinculoTest {
++
++    @Mock DevolucionRepository devolucionRepository;
++    @Mock VentaRepository ventaRepository;
++    @Mock ProductoRepository productoRepository;
++    @Mock InventarioRepository inventarioRepository;
++    @Mock DetalleVentaRepository detalleVentaRepository;
++    @InjectMocks DevolucionService service;
++
++    private Venta venta;
++
++    @BeforeEach
++    void preparar() {
++        venta = new Venta();
++        venta.setId(1);
++        when(ventaRepository.findById(1)).thenReturn(Optional.of(venta));
++        when(devolucionRepository.count()).thenReturn(0L);
++        when(devolucionRepository.save(any(Devolucion.class))).thenAnswer(i -> i.getArgument(0));
++    }
++
++    private Producto producto(int id, int stock) {
++        Producto p = new Producto();
++        p.setId(id);
++        p.setStock(stock);
++        when(productoRepository.findById(id)).thenReturn(Optional.of(p));
++        return p;
++    }
++
++    private DetalleVenta vendido(Producto p, int cantidad) {
++        DetalleVenta dv = new DetalleVenta();
++        dv.setVenta(venta);
++        dv.setProducto(p);
++        dv.setCantidad(cantidad);
++        return dv;
++    }
++
++    private DetalleDevolucion linea(Producto p, int cantidad, String precio) {
++        DetalleDevolucion d = new DetalleDevolucion();
++        d.setProducto(p);
++        d.setCantidad(cantidad);
++        d.setPrecioUnitario(new BigDecimal(precio));
++        return d;
++    }
++
++    @Test
++    void registrar_devolverExactamenteLoVendidoSeAcepta_valorLimite() {
++        Producto p = producto(5, 10);
++        when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(p, 5)));
++
++        service.registrar(1, "Defecto", null, new ArrayList<>(List.of(linea(p, 5, "10.00"))), new Usuario());
++
++        assertEquals(15, p.getStock());
++    }
++
++    @Test
++    void registrar_unaUnidadMasDeLoVendidoSeRechaza_valorLimite() {
++        Producto p = producto(5, 10);
++        when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(p, 5)));
++
++        assertThrows(ValidacionException.class, () -> service.registrar(1, "Defecto", null,
++                new ArrayList<>(List.of(linea(p, 6, "10.00"))), new Usuario()));
++        assertEquals(10, p.getStock());
++    }
++
++    @Test
++    void registrar_devolucionParcialSumaSoloLoDevuelto() {
++        Producto p = producto(5, 10);
++        when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(p, 5)));
++
++        Devolucion d = service.registrar(1, "Cambio", null,
++                new ArrayList<>(List.of(linea(p, 2, "10.00"))), new Usuario());
++
++        assertEquals(12, p.getStock());
++        assertEquals(0, new BigDecimal("20.00").compareTo(d.getMontoReembolso()));
++    }
++
++    @Test
++    void registrar_variasLineasSumanElMontoDeLaNotaDeCredito() {
++        Producto a = producto(5, 10);
++        Producto b = producto(6, 4);
++        when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(a, 3), vendido(b, 2)));
++
++        Devolucion d = service.registrar(1, "Cambio", null, new ArrayList<>(List.of(
++                linea(a, 2, "25.00"), linea(b, 1, "10.50"))), new Usuario());
++
++        assertEquals(0, new BigDecimal("60.50").compareTo(d.getMontoReembolso()));   // 50.00 + 10.50
++    }
++
++    @Test
++    void registrar_quedaVinculadaALaVentaOriginal() {
++        Producto p = producto(5, 10);
++        when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(p, 5)));
++
++        Devolucion d = service.registrar(1, "Cambio", null,
++                new ArrayList<>(List.of(linea(p, 1, "10.00"))), new Usuario());
++
++        assertSame(venta, d.getVenta());
++    }
++
++    @Test
++    void registrar_rechazaUnProductoQueNoEstaEnLaVentaOriginal() {
++        Producto vendidoEnLaVenta = producto(5, 10);
++        Producto ajeno = producto(9, 10);
++        when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(vendidoEnLaVenta, 5)));
++
++        assertThrows(ValidacionException.class, () -> service.registrar(1, "Cambio", null,
++                new ArrayList<>(List.of(linea(ajeno, 1, "10.00"))), new Usuario()));
++        assertEquals(10, ajeno.getStock());
++    }
++
++    @Test
++    void registrar_unaLineaInvalidaNoModificaElStockDeLasLineasValidas() {
++        Producto a = producto(5, 10);
++        Producto b = producto(6, 10);
++        when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(a, 3), vendido(b, 1)));
++
++        assertThrows(ValidacionException.class, () -> service.registrar(1, "Cambio", null,
++                new ArrayList<>(List.of(linea(a, 2, "10.00"), linea(b, 99, "10.00"))), new Usuario()));
++
++        assertEquals(10, a.getStock());
++        verify(productoRepository, never()).save(any());
++        verify(devolucionRepository, never()).save(any());
++    }
++
++    @Test
++    void registrar_mismoProductoEnDosLineasSeSumaParaValidar() {
++        Producto p = producto(5, 10);
++        when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(p, 5)));
++
++        assertThrows(ValidacionException.class, () -> service.registrar(1, "Cambio", null,
++                new ArrayList<>(List.of(linea(p, 3, "10.00"), linea(p, 3, "10.00"))), new Usuario()));
++    }
++}
+diff --git a/src/test/java/com/ferreteria/v1/services/InventarioServiceListadoTest.java b/src/test/java/com/ferreteria/v1/services/InventarioServiceListadoTest.java
+new file mode 100644
+index 0000000..c13c175
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/services/InventarioServiceListadoTest.java
+@@ -0,0 +1,167 @@
++package com.ferreteria.v1.services;
++
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.*;
++
++import java.util.List;
++import java.util.Optional;
++
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.mockito.junit.jupiter.MockitoSettings;
++import org.mockito.quality.Strictness;
++
++import com.ferreteria.v1.exceptions.ValidacionException;
++import com.ferreteria.v1.models.Inventario;
++import com.ferreteria.v1.models.Producto;
++import com.ferreteria.v1.models.Usuario;
++import com.ferreteria.v1.repositories.InventarioRepository;
++import com.ferreteria.v1.repositories.ProductoRepository;
++
++/** HU-S2-21 Listar stock actual / H0059 Registrar movimientos de stock: lecturas y casos de borde del ajuste. */
++@ExtendWith(MockitoExtension.class)
++@MockitoSettings(strictness = Strictness.LENIENT)
++class InventarioServiceListadoTest {
++
++    @Mock InventarioRepository inventarioRepository;
++    @Mock ProductoRepository productoRepository;
++    @InjectMocks InventarioService service;
++
++    private Producto producto(int id, int stock) {
++        Producto p = new Producto();
++        p.setId(id);
++        p.setNombre("Producto " + id);
++        p.setStock(stock);
++        return p;
++    }
++
++    private Inventario movimiento(Producto p, Inventario.TipoMovimiento tipo) {
++        Inventario m = new Inventario();
++        m.setProducto(p);
++        m.setTipo(tipo);
++        return m;
++    }
++
++    // ───────────── Historial de movimientos (alimenta la pestaña "Movimientos") ─────────────
++    @Test
++    void listarTodos_devuelveTodosLosMovimientosDelRepositorio() {
++        Producto p = producto(1, 10);
++        when(inventarioRepository.findAll()).thenReturn(List.of(
++                movimiento(p, Inventario.TipoMovimiento.Entrada),
++                movimiento(p, Inventario.TipoMovimiento.Salida),
++                movimiento(p, Inventario.TipoMovimiento.Ajuste)));
++
++        assertEquals(3, service.listarTodos().size());
++    }
++
++    @Test
++    void listarTodos_sinMovimientosDevuelveListaVaciaSinError() {
++        when(inventarioRepository.findAll()).thenReturn(List.of());
++
++        assertTrue(service.listarTodos().isEmpty());
++    }
++
++    @Test
++    void listarPorProducto_pideSoloLosMovimientosDeEseProducto() {
++        Producto p = producto(4, 10);
++        when(inventarioRepository.findByProductoId(4)).thenReturn(List.of(movimiento(p, Inventario.TipoMovimiento.Entrada)));
++
++        List<Inventario> r = service.listarPorProducto(4);
++
++        assertEquals(1, r.size());
++        verify(inventarioRepository).findByProductoId(4);
++        verify(inventarioRepository, never()).findAll();
++    }
++
++    @Test
++    void listarPorProducto_sinMovimientosDevuelveListaVacia() {
++        when(inventarioRepository.findByProductoId(8)).thenReturn(List.of());
++
++        assertTrue(service.listarPorProducto(8).isEmpty());
++    }
++
++    @Test
++    void guardar_persisteElMovimientoTalCual() {
++        Inventario m = movimiento(producto(1, 5), Inventario.TipoMovimiento.Entrada);
++        when(inventarioRepository.save(m)).thenReturn(m);
++
++        assertSame(m, service.guardar(m));
++        verify(inventarioRepository).save(m);
++    }
++
++    // ───────────── Ajuste manual: casos de borde ─────────────
++    @Test
++    void ajustarStock_alMismoValorRegistraCantidadCero_valorLimite() {
++        Producto p = producto(1, 10);
++        when(productoRepository.findById(1)).thenReturn(Optional.of(p));
++        when(inventarioRepository.save(any(Inventario.class))).thenAnswer(i -> i.getArgument(0));
++
++        Inventario mov = service.ajustarStock(1, 10, "Conteo coincide", new Usuario());
++
++        assertEquals(10, p.getStock());
++        assertEquals(0, mov.getCantidad());
++        assertEquals(10, mov.getStockAntes());
++        assertEquals(10, mov.getStockDespues());
++    }
++
++    @Test
++    void ajustarStock_unaUnidadMenosRegistraCantidadUno_valorLimite() {
++        Producto p = producto(1, 10);
++        when(productoRepository.findById(1)).thenReturn(Optional.of(p));
++        when(inventarioRepository.save(any(Inventario.class))).thenAnswer(i -> i.getArgument(0));
++
++        Inventario mov = service.ajustarStock(1, 9, "Rotura", new Usuario());
++
++        assertEquals(9, p.getStock());
++        assertEquals(1, mov.getCantidad());
++    }
++
++    @Test
++    void ajustarStock_menosUnoSeRechaza_valorLimite() {
++        Producto p = producto(1, 10);
++        when(productoRepository.findById(1)).thenReturn(Optional.of(p));
++
++        assertThrows(ValidacionException.class, () -> service.ajustarStock(1, -1, "x", new Usuario()));
++
++        assertEquals(10, p.getStock());
++        verify(productoRepository, never()).save(any());
++        verify(inventarioRepository, never()).save(any());
++    }
++
++    @Test
++    void ajustarStock_sinIndicarElNuevoStockSeRechaza() {
++        assertThrows(ValidacionException.class, () -> service.ajustarStock(1, null, "x", new Usuario()));
++
++        verify(productoRepository, never()).findById(any());
++        verify(inventarioRepository, never()).save(any());
++    }
++
++    @Test
++    void ajustarStock_noTocaElStockDeOtrosProductos() {
++        Producto objetivo = producto(1, 10);
++        Producto otro = producto(2, 50);
++        when(productoRepository.findById(1)).thenReturn(Optional.of(objetivo));
++        when(inventarioRepository.save(any(Inventario.class))).thenAnswer(i -> i.getArgument(0));
++
++        service.ajustarStock(1, 25, "Conteo", new Usuario());
++
++        assertEquals(25, objetivo.getStock());
++        assertEquals(50, otro.getStock());
++        verify(productoRepository, never()).findById(2);
++    }
++
++    @Test
++    void ajustarStock_elMotivoEscritoSeConservaTalCual() {
++        Producto p = producto(1, 10);
++        when(productoRepository.findById(1)).thenReturn(Optional.of(p));
++        when(inventarioRepository.save(any(Inventario.class))).thenAnswer(i -> i.getArgument(0));
++
++        Inventario mov = service.ajustarStock(1, 12, "Inventario anual 2026", new Usuario());
++
++        assertEquals("Inventario anual 2026", mov.getMotivo());
++    }
++}
+diff --git a/src/test/java/com/ferreteria/v1/services/ProductoServiceExtraTest.java b/src/test/java/com/ferreteria/v1/services/ProductoServiceExtraTest.java
+new file mode 100644
+index 0000000..7f417d5
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/services/ProductoServiceExtraTest.java
+@@ -0,0 +1,96 @@
++package com.ferreteria.v1.services;
++
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.*;
++
++import java.util.List;
++import java.util.Optional;
++
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.mockito.junit.jupiter.MockitoSettings;
++import org.mockito.quality.Strictness;
++
++import com.ferreteria.v1.models.Producto;
++import com.ferreteria.v1.repositories.ProductoRepository;
++
++/** CP-012, CP-074, CP-075, CP-078, CP-099: stock crítico, inactivar y stock 0. */
++@ExtendWith(MockitoExtension.class)
++@MockitoSettings(strictness = Strictness.LENIENT)
++class ProductoServiceExtraTest {
++
++    @Mock ProductoRepository productoRepository;
++    @Mock UsuarioActualService usuarioActual;
++    @InjectMocks ProductoService service;
++
++    private Producto producto(int id, Integer stock, Integer stockMinimo) {
++        Producto p = new Producto();
++        p.setId(id);
++        p.setNombre("Producto " + id);
++        p.setStock(stock);
++        p.setStockMinimo(stockMinimo);
++        p.setPrecioCompra(10.0);
++        p.setPrecioVenta(15.0);
++        p.setActivo(true);
++        return p;
++    }
++
++    // ───────────── CP-012 / CP-099: stock crítico ─────────────
++    @Test
++    void productosConStockBajo_stockCeroEsCritico() {
++        when(productoRepository.findByActivoTrue()).thenReturn(List.of(producto(1, 0, 5)));
++        assertEquals(1, service.productosConStockBajo().size());
++    }
++
++    @Test
++    void productosConStockBajo_stockSobreElMinimoNoEsCritico() {
++        when(productoRepository.findByActivoTrue()).thenReturn(List.of(producto(1, 6, 5)));
++        assertTrue(service.productosConStockBajo().isEmpty());
++    }
++
++    @Test
++    void productosConStockBajo_ignoraProductosSinStockOSinMinimoDefinido() {
++        when(productoRepository.findByActivoTrue())
++                .thenReturn(List.of(producto(1, null, 5), producto(2, 3, null)));
++        assertTrue(service.productosConStockBajo().isEmpty());
++    }
++
++    // ───────────── CP-078: stock 0 es válido al guardar ─────────────
++    @Test
++    void guardar_stockCeroEsValido_valorLimite() {
++        when(productoRepository.save(any(Producto.class))).thenAnswer(i -> i.getArgument(0));
++        Producto r = service.guardar(producto(1, 0, 5));
++        assertEquals(0, r.getStock());
++    }
++
++    // ───────────── CP-074 / CP-075: inactivar sin borrar ─────────────
++    @Test
++    void eliminar_inactivaElProductoSinBorrarlo() {
++        Producto p = producto(1, 10, 5);
++        when(productoRepository.findById(1)).thenReturn(Optional.of(p));
++
++        service.eliminar(1);
++
++        assertFalse(p.getActivo());
++        verify(productoRepository).save(p);
++        verify(productoRepository, never()).deleteById(any());
++        verify(productoRepository, never()).delete(any());
++    }
++
++    @Test
++    void eliminar_productoInexistenteNoFallaNiGuardaNada() {
++        when(productoRepository.findById(404)).thenReturn(Optional.empty());
++        assertDoesNotThrow(() -> service.eliminar(404));
++        verify(productoRepository, never()).save(any());
++    }
++
++    @Test
++    void buscarPorId_inexistenteDevuelveNull() {
++        when(productoRepository.findById(404)).thenReturn(Optional.empty());
++        assertNull(service.buscarPorId(404));
++    }
++}
+diff --git a/src/test/java/com/ferreteria/v1/services/ProveedorServiceTest.java b/src/test/java/com/ferreteria/v1/services/ProveedorServiceTest.java
+new file mode 100644
+index 0000000..1d350ad
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/services/ProveedorServiceTest.java
+@@ -0,0 +1,95 @@
++package com.ferreteria.v1.services;
++
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.*;
++
++import java.util.Optional;
++
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.mockito.junit.jupiter.MockitoSettings;
++import org.mockito.quality.Strictness;
++
++import com.ferreteria.v1.exceptions.ValidacionException;
++import com.ferreteria.v1.models.Proveedor;
++import com.ferreteria.v1.repositories.ProveedorRepository;
++
++/** H0013 a H0016 (proveedores, Sprint 1): CP-237 a CP-246. */
++@ExtendWith(MockitoExtension.class)
++@MockitoSettings(strictness = Strictness.LENIENT)
++class ProveedorServiceTest {
++
++    @Mock ProveedorRepository proveedorRepository;
++    @Mock UsuarioActualService usuarioActual;
++    @InjectMocks ProveedorService service;
++
++    @BeforeEach
++    void preparar() {
++        when(proveedorRepository.save(any(Proveedor.class))).thenAnswer(i -> i.getArgument(0));
++        when(usuarioActual.nombreActual()).thenReturn("Admin");
++    }
++
++    private Proveedor proveedor(String ruc) {
++        Proveedor p = new Proveedor();
++        p.setEmpresa("Aceros SAC");
++        p.setRuc(ruc);
++        return p;
++    }
++
++    @Test
++    void guardar_rucDe11DigitosSeRegistraConElUsuarioQueLoRegistra() {
++        Proveedor r = service.guardar(proveedor("20123456789"));
++        assertEquals("20123456789", r.getRuc());
++        assertEquals("Admin", r.getRegistradoPor());
++    }
++
++    @Test
++    void guardar_rucConLetrasSeRechaza() {
++        assertThrows(ValidacionException.class, () -> service.guardar(proveedor("2012345678A")));
++    }
++
++    @Test
++    void guardar_correoConFormatoInvalidoSeRechaza() {
++        Proveedor p = proveedor("20123456789");
++        p.setEmail("sin-arroba");
++        assertThrows(ValidacionException.class, () -> service.guardar(p));
++    }
++
++    // ───────────── CP-238: RUC de 10 y 12 dígitos (se espera ROJO: Validador.ruc admite de 1 a 20 dígitos) ─────────────
++    @Test
++    void guardar_rucDe10DigitosSeRechaza_valorLimite() {
++        assertThrows(ValidacionException.class, () -> service.guardar(proveedor("2012345678")));
++        verify(proveedorRepository, never()).save(any());
++    }
++
++    @Test
++    void guardar_rucDe12DigitosSeRechaza_valorLimite() {
++        assertThrows(ValidacionException.class, () -> service.guardar(proveedor("201234567890")));
++    }
++
++    // ───────────── CP-240: nombre vacío (se espera ROJO: no se valida la empresa) ─────────────
++    @Test
++    void guardar_empresaVaciaSeRechaza() {
++        Proveedor p = proveedor("20123456789");
++        p.setEmpresa("  ");
++        assertThrows(ValidacionException.class, () -> service.guardar(p));
++    }
++
++    // ───────────── CP-244 / CP-246: inactivar conserva el registro (se espera ROJO: eliminar() borra) ─────────────
++    @Test
++    void eliminar_inactivaAlProveedorSinBorrarloParaConservarSusCompras() {
++        Proveedor p = proveedor("20123456789");
++        p.setId(1);
++        when(proveedorRepository.findById(1)).thenReturn(Optional.of(p));
++
++        service.eliminar(1);
++
++        assertFalse(p.getActivo());
++        verify(proveedorRepository, never()).deleteById(any());
++    }
++}
+diff --git a/src/test/java/com/ferreteria/v1/services/UsuarioServiceTest.java b/src/test/java/com/ferreteria/v1/services/UsuarioServiceTest.java
+new file mode 100644
+index 0000000..d67cca2
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/services/UsuarioServiceTest.java
+@@ -0,0 +1,150 @@
++package com.ferreteria.v1.services;
++
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.*;
++
++import java.util.List;
++import java.util.Optional;
++
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.mockito.junit.jupiter.MockitoSettings;
++import org.mockito.quality.Strictness;
++import org.springframework.security.crypto.password.PasswordEncoder;
++
++import com.ferreteria.v1.exceptions.ValidacionException;
++import com.ferreteria.v1.models.Rol;
++import com.ferreteria.v1.models.Usuario;
++import com.ferreteria.v1.repositories.RolRepository;
++import com.ferreteria.v1.repositories.UsuarioRepository;
++
++/** H0005 a H0008 (usuarios, Sprint 1): CP-215 a CP-225. */
++@ExtendWith(MockitoExtension.class)
++@MockitoSettings(strictness = Strictness.LENIENT)
++class UsuarioServiceTest {
++
++    @Mock UsuarioRepository usuarioRepository;
++    @Mock RolRepository rolRepository;
++    @Mock PasswordEncoder passwordEncoder;
++    @Mock UsuarioActualService usuarioActual;
++    @InjectMocks UsuarioService service;
++
++    @BeforeEach
++    void preparar() {
++        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
++        when(passwordEncoder.encode(any())).thenAnswer(i -> "HASH(" + i.getArgument(0) + ")");
++        when(usuarioActual.nombreActual()).thenReturn("Admin");
++    }
++
++    private Usuario existente() {
++        Usuario u = new Usuario();
++        u.setId(1);
++        u.setNombre("Ana");
++        u.setEmail("ana@mail.com");
++        u.setPasswordHash("HASH(vieja)");
++        u.setActivo(true);
++        when(usuarioRepository.findById(1)).thenReturn(Optional.of(u));
++        return u;
++    }
++
++    // ───────────── CP-215 / CP-218 ─────────────
++    @Test
++    void crear_guardaElUsuarioActivoYConElRolIndicado() {
++        Rol rol = new Rol();
++        when(rolRepository.findById(2)).thenReturn(Optional.of(rol));
++
++        Usuario u = service.crear("Ana", "ana@mail.com", "secreta", 2, null);
++
++        assertTrue(u.getActivo());
++        assertSame(rol, u.getRol());
++        assertEquals("Admin", u.getRegistradoPor());
++    }
++
++    @Test
++    void crear_laContrasenaNoSeGuardaEnTextoPlano() {
++        Usuario u = service.crear("Ana", "ana@mail.com", "secreta", null, true);
++        assertNotEquals("secreta", u.getPasswordHash());
++        assertEquals("HASH(secreta)", u.getPasswordHash());
++    }
++
++    // ───────────── CP-217: datos inválidos ─────────────
++    @Test
++    void crear_correoInvalidoSeRechazaYNoSeGuarda() {
++        assertThrows(ValidacionException.class,
++                () -> service.crear("Ana", "sin-arroba", "secreta", null, true));
++        verify(usuarioRepository, never()).save(any());
++    }
++
++    // ───────────── CP-221 / CP-222 ─────────────
++    @Test
++    void actualizar_sinContrasenaConservaElHashActual() {
++        Usuario u = existente();
++        Usuario r = service.actualizar(1, "Ana María", null, null, null, null);
++        assertEquals("Ana María", r.getNombre());
++        assertEquals("HASH(vieja)", r.getPasswordHash());
++        assertSame(u, r);
++    }
++
++    @Test
++    void actualizar_conContrasenaEnBlancoConservaElHashActual() {
++        existente();
++        Usuario r = service.actualizar(1, null, null, "   ", null, null);
++        assertEquals("HASH(vieja)", r.getPasswordHash());
++    }
++
++    @Test
++    void actualizar_conContrasenaNuevaCambiaElHash() {
++        existente();
++        Usuario r = service.actualizar(1, null, null, "nueva", null, null);
++        assertEquals("HASH(nueva)", r.getPasswordHash());
++    }
++
++    @Test
++    void actualizar_correoInvalidoSeRechaza() {
++        existente();
++        assertThrows(ValidacionException.class,
++                () -> service.actualizar(1, null, "sin-arroba", null, null, null));
++    }
++
++    @Test
++    void actualizar_usuarioInexistenteLanzaExcepcion() {
++        when(usuarioRepository.findById(404)).thenReturn(Optional.empty());
++        assertThrows(RuntimeException.class, () -> service.actualizar(404, "X", null, null, null, null));
++    }
++
++    // ───────────── CP-223: inactivar sin borrar ─────────────
++    @Test
++    void eliminar_inactivaAlUsuarioSinBorrarlo() {
++        Usuario u = existente();
++        service.eliminar(1);
++        assertFalse(u.getActivo());
++        verify(usuarioRepository).save(u);
++        verify(usuarioRepository, never()).deleteById(any());
++    }
++
++    @Test
++    void eliminar_usuarioInexistenteNoFallaNiGuardaNada() {
++        when(usuarioRepository.findById(404)).thenReturn(Optional.empty());
++        assertDoesNotThrow(() -> service.eliminar(404));
++        verify(usuarioRepository, never()).save(any());
++    }
++
++    // ───────────── CP-219 / CP-220 ─────────────
++    @Test
++    void listarActivos_pideSoloLosActivos() {
++        when(usuarioRepository.findByActivoTrue()).thenReturn(List.of(new Usuario()));
++        assertEquals(1, service.listarActivos().size());
++        verify(usuarioRepository).findByActivoTrue();
++    }
++
++    @Test
++    void buscarPorEmail_inexistenteDevuelveNull() {
++        when(usuarioRepository.findByEmail("nadie@mail.com")).thenReturn(Optional.empty());
++        assertNull(service.buscarPorEmail("nadie@mail.com"));
++    }
++}
+diff --git a/src/test/java/com/ferreteria/v1/services/VentaServiceTest.java b/src/test/java/com/ferreteria/v1/services/VentaServiceTest.java
+new file mode 100644
+index 0000000..a32e06c
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/services/VentaServiceTest.java
+@@ -0,0 +1,290 @@
++package com.ferreteria.v1.services;
++
++import static org.junit.jupiter.api.Assertions.*;
++import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.Mockito.*;
++
++import java.math.BigDecimal;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Optional;
++
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.extension.ExtendWith;
++import org.mockito.ArgumentCaptor;
++import org.mockito.InjectMocks;
++import org.mockito.Mock;
++import org.mockito.junit.jupiter.MockitoExtension;
++import org.mockito.junit.jupiter.MockitoSettings;
++import org.mockito.quality.Strictness;
++
++import com.ferreteria.v1.exceptions.ValidacionException;
++import com.ferreteria.v1.models.Caja;
++import com.ferreteria.v1.models.DetalleVenta;
++import com.ferreteria.v1.models.Inventario;
++import com.ferreteria.v1.models.Producto;
++import com.ferreteria.v1.models.Usuario;
++import com.ferreteria.v1.models.Venta;
++import com.ferreteria.v1.repositories.CajaRepository;
++import com.ferreteria.v1.repositories.DetalleVentaRepository;
++import com.ferreteria.v1.repositories.InventarioRepository;
++import com.ferreteria.v1.repositories.ProductoRepository;
++import com.ferreteria.v1.repositories.VentaRepository;
++
++/** H0029 a H0035 (venta y comprobante) y anulación; integración Ventas-Inventario (CP-021 a CP-034, CP-095). */
++@ExtendWith(MockitoExtension.class)
++@MockitoSettings(strictness = Strictness.LENIENT)
++class VentaServiceTest {
++
++    @Mock VentaRepository ventaRepository;
++    @Mock DetalleVentaRepository detalleVentaRepository;
++    @Mock ProductoRepository productoRepository;
++    @Mock InventarioRepository inventarioRepository;
++    @Mock CajaRepository cajaRepository;
++    @InjectMocks VentaService service;
++
++    @BeforeEach
++    void preparar() {
++        when(ventaRepository.save(any(Venta.class))).thenAnswer(i -> i.getArgument(0));
++        when(detalleVentaRepository.save(any(DetalleVenta.class))).thenAnswer(i -> i.getArgument(0));
++        when(ventaRepository.count()).thenReturn(0L);
++    }
++
++    private Producto producto(int id, int stock) {
++        Producto p = new Producto();
++        p.setId(id);
++        p.setNombre("Producto " + id);
++        p.setStock(stock);
++        when(productoRepository.findById(id)).thenReturn(Optional.of(p));
++        return p;
++    }
++
++    private DetalleVenta linea(Producto p, int cantidad, double precio) {
++        DetalleVenta d = new DetalleVenta();
++        d.setProducto(p);
++        d.setCantidad(cantidad);
++        d.setPrecioUnitario(precio);
++        return d;
++    }
++
++    private Venta venta(Venta.TipoComprobante tipo) {
++        Venta v = new Venta();
++        v.setTipoComprobante(tipo);
++        return v;
++    }
++
++    // ───────────── CP-032 / CP-033: venta correcta, total y stock ─────────────
++    @Test
++    void registrarVenta_calculaSubtotalIgvYTotal() {
++        Producto p = producto(5, 10);
++        Venta v = service.registrarVenta(venta(Venta.TipoComprobante.Boleta),
++                new ArrayList<>(List.of(linea(p, 2, 25.0))), new Usuario());
++
++        assertEquals(50.0, v.getSubtotal(), 0.001);
++        assertEquals(9.0, v.getIgv(), 0.001);          // 18 %
++        assertEquals(59.0, v.getTotal(), 0.001);
++    }
++
++    @Test
++    void registrarVenta_stockFinalEsStockInicialMenosCantidad_integracion() {
++        Producto p = producto(5, 10);
++        service.registrarVenta(venta(Venta.TipoComprobante.Boleta),
++                new ArrayList<>(List.of(linea(p, 4, 10.0))), new Usuario());
++
++        assertEquals(6, p.getStock());                  // 10 - 4
++        verify(productoRepository).save(p);
++    }
++
++    @Test
++    void registrarVenta_registraMovimientoDeSalidaEnElInventario_integracion() {
++        Producto p = producto(5, 10);
++        service.registrarVenta(venta(Venta.TipoComprobante.Boleta),
++                new ArrayList<>(List.of(linea(p, 3, 10.0))), new Usuario());
++
++        ArgumentCaptor<Inventario> cap = ArgumentCaptor.forClass(Inventario.class);
++        verify(inventarioRepository).save(cap.capture());
++        Inventario mov = cap.getValue();
++        assertEquals(Inventario.TipoMovimiento.Salida, mov.getTipo());
++        assertEquals(3, mov.getCantidad());
++        assertEquals(10, mov.getStockAntes());
++        assertEquals(7, mov.getStockDespues());
++        assertTrue(mov.getMotivo().contains("B001-00001"));
++    }
++
++    @Test
++    void registrarVenta_asignaElUsuarioQueVende() {
++        Producto p = producto(5, 10);
++        Usuario u = new Usuario();
++        Venta v = service.registrarVenta(venta(Venta.TipoComprobante.Boleta),
++                new ArrayList<>(List.of(linea(p, 1, 10.0))), u);
++        assertSame(u, v.getUsuario());
++    }
++
++    // ───────────── CP-023 / CP-034: valores límite de stock ─────────────
++    @Test
++    void registrarVenta_vender_exactamenteElStockDisponibleEsValido_valorLimite() {
++        Producto p = producto(5, 10);
++        service.registrarVenta(venta(Venta.TipoComprobante.Boleta),
++                new ArrayList<>(List.of(linea(p, 10, 10.0))), new Usuario());
++        assertEquals(0, p.getStock());
++    }
++
++    @Test
++    void registrarVenta_rechazaCantidadMayorAlStock_yNoCambiaElStock() {
++        Producto p = producto(5, 10);
++
++        assertThrows(RuntimeException.class, () -> service.registrarVenta(
++                venta(Venta.TipoComprobante.Boleta),
++                new ArrayList<>(List.of(linea(p, 11, 10.0))), new Usuario()));
++
++        assertEquals(10, p.getStock());
++        verify(productoRepository, never()).save(any());
++        verify(inventarioRepository, never()).save(any());
++    }
++
++    @Test
++    void registrarVenta_productoInexistenteLanzaExcepcion() {
++        Producto fantasma = new Producto();
++        fantasma.setId(999);
++        when(productoRepository.findById(999)).thenReturn(Optional.empty());
++
++        assertThrows(RuntimeException.class, () -> service.registrarVenta(
++                venta(Venta.TipoComprobante.Boleta),
++                new ArrayList<>(List.of(linea(fantasma, 1, 10.0))), new Usuario()));
++    }
++
++    // ───────────── CP-024: cantidad 0 o negativa (se espera ROJO con el código actual) ─────────────
++    @Test
++    void registrarVenta_rechazaCantidadCero() {
++        Producto p = producto(5, 10);
++        assertThrows(ValidacionException.class, () -> service.registrarVenta(
++                venta(Venta.TipoComprobante.Boleta),
++                new ArrayList<>(List.of(linea(p, 0, 10.0))), new Usuario()));
++    }
++
++    @Test
++    void registrarVenta_rechazaCantidadNegativa_yNoSumaStock() {
++        Producto p = producto(5, 10);
++        assertThrows(ValidacionException.class, () -> service.registrarVenta(
++                venta(Venta.TipoComprobante.Boleta),
++                new ArrayList<>(List.of(linea(p, -3, 10.0))), new Usuario()));
++        assertEquals(10, p.getStock());
++    }
++
++    // ───────────── H0031: serie y número de comprobante ─────────────
++    @Test
++    void registrarVenta_boletaUsaSerieB001Correlativa() {
++        Producto p = producto(5, 10);
++        Venta v = service.registrarVenta(venta(Venta.TipoComprobante.Boleta),
++                new ArrayList<>(List.of(linea(p, 1, 10.0))), new Usuario());
++        assertEquals("B001-00001", v.getNumeroComprobante());
++    }
++
++    @Test
++    void registrarVenta_facturaUsaSerieF001ConElSiguienteNumero() {
++        when(ventaRepository.count()).thenReturn(4L);
++        Producto p = producto(5, 10);
++        Venta v = service.registrarVenta(venta(Venta.TipoComprobante.Factura),
++                new ArrayList<>(List.of(linea(p, 1, 10.0))), new Usuario());
++        assertEquals("F001-00005", v.getNumeroComprobante());
++    }
++
++    @Test
++    void registrarVenta_respetaUnNumeroDeComprobanteYaAsignado() {
++        Producto p = producto(5, 10);
++        Venta base = venta(Venta.TipoComprobante.Boleta);
++        base.setNumeroComprobante("B001-00099");
++        Venta v = service.registrarVenta(base,
++                new ArrayList<>(List.of(linea(p, 1, 10.0))), new Usuario());
++        assertEquals("B001-00099", v.getNumeroComprobante());
++    }
++
++    // ───────────── Caja ─────────────
++    @Test
++    void registrarVenta_conCajaAbiertaSumaElTotalALaCaja() {
++        Caja caja = new Caja();
++        caja.setTotalVentas(new BigDecimal("100.00"));
++        when(cajaRepository.findFirstByEstadoOrderByAperturaDesc(Caja.Estado.Abierta))
++                .thenReturn(Optional.of(caja));
++        Producto p = producto(5, 10);
++
++        service.registrarVenta(venta(Venta.TipoComprobante.Boleta),
++                new ArrayList<>(List.of(linea(p, 2, 25.0))), new Usuario());
++
++        assertEquals(0, new BigDecimal("159.00").compareTo(caja.getTotalVentas()));
++        verify(cajaRepository).save(caja);
++    }
++
++    @Test
++    void registrarVenta_sinCajaAbiertaNoFalla() {
++        Producto p = producto(5, 10);
++        assertDoesNotThrow(() -> service.registrarVenta(venta(Venta.TipoComprobante.Boleta),
++                new ArrayList<>(List.of(linea(p, 1, 10.0))), new Usuario()));
++        verify(cajaRepository, never()).save(any());
++    }
++
++    // ───────────── Anular venta (integración Ventas-Inventario) ─────────────
++    @Test
++    void anular_devuelveElStockRegistraEntradaYMarcaAnulada() {
++        Producto p = new Producto();
++        p.setId(5); p.setStock(8);
++        Venta v = new Venta();
++        v.setId(1);
++        v.setNumeroComprobante("B001-00001");
++        DetalleVenta d = linea(p, 2, 10.0);
++        when(ventaRepository.findById(1)).thenReturn(Optional.of(v));
++        when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(d));
++
++        Venta r = service.anular(1, new Usuario());
++
++        assertEquals(10, p.getStock());                 // 8 + 2
++        assertEquals(Venta.EstadoVenta.Anulada, r.getEstado());
++        ArgumentCaptor<Inventario> cap = ArgumentCaptor.forClass(Inventario.class);
++        verify(inventarioRepository).save(cap.capture());
++        assertEquals(Inventario.TipoMovimiento.Entrada, cap.getValue().getTipo());
++        assertTrue(cap.getValue().getMotivo().contains("B001-00001"));
++    }
++
++    @Test
++    void anular_unaVentaYaAnuladaSeRechazaYNoTocaElStock() {
++        Venta v = new Venta();
++        v.setId(1);
++        v.setEstado(Venta.EstadoVenta.Anulada);
++        when(ventaRepository.findById(1)).thenReturn(Optional.of(v));
++
++        assertThrows(RuntimeException.class, () -> service.anular(1, new Usuario()));
++        verify(productoRepository, never()).save(any());
++    }
++
++    @Test
++    void anular_ventaInexistenteLanzaExcepcion() {
++        when(ventaRepository.findById(404)).thenReturn(Optional.empty());
++        assertThrows(RuntimeException.class, () -> service.anular(404, new Usuario()));
++    }
++
++    // ───────────── H0035 / H0038: listar y detalle ─────────────
++    @Test
++    void listarTodas_devuelveLasVentasDelRepositorio() {
++        when(ventaRepository.findAll()).thenReturn(List.of(new Venta(), new Venta()));
++        assertEquals(2, service.listarTodas().size());
++    }
++
++    @Test
++    void listarTodas_sinVentasDevuelveListaVaciaSinError() {
++        when(ventaRepository.findAll()).thenReturn(List.of());
++        assertTrue(service.listarTodas().isEmpty());
++    }
++
++    @Test
++    void buscarPorId_inexistenteDevuelveNull() {
++        when(ventaRepository.findById(404)).thenReturn(Optional.empty());
++        assertNull(service.buscarPorId(404));
++    }
++
++    @Test
++    void obtenerDetalle_delegaEnElRepositorioDeDetalles() {
++        when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(new DetalleVenta()));
++        assertEquals(1, service.obtenerDetalle(1).size());
++    }
++}
+-- 
+2.43.0
+
