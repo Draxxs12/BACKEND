@@ -1,0 +1,72 @@
+-------------------------------------------------------------------------------
+Test set: com.ferreteria.v1.services.CompraServiceTest
+-------------------------------------------------------------------------------
+Tests run: 16, Failures: 6, Errors: 0, Skipped: 0, Time elapsed: 0.612 s <<< FAILURE! -- in com.ferreteria.v1.services.CompraServiceTest
+com.ferreteria.v1.services.CompraServiceTest.guardar_rechazaCantidadNegativa_yNoRestaStock -- Time elapsed: 0.051 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: Expected com.ferreteria.v1.exceptions.ValidacionException to be thrown, but nothing was thrown.
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:73)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:35)
+	at org.junit.jupiter.api.Assertions.assertThrows(Assertions.java:3115)
+	at com.ferreteria.v1.services.CompraServiceTest.guardar_rechazaCantidadNegativa_yNoRestaStock(CompraServiceTest.java:158)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:583)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+
+com.ferreteria.v1.services.CompraServiceTest.guardar_rechazaPrecioDeCompraNegativo -- Time elapsed: 0.006 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: Expected com.ferreteria.v1.exceptions.ValidacionException to be thrown, but nothing was thrown.
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:73)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:35)
+	at org.junit.jupiter.api.Assertions.assertThrows(Assertions.java:3115)
+	at com.ferreteria.v1.services.CompraServiceTest.guardar_rechazaPrecioDeCompraNegativo(CompraServiceTest.java:166)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:583)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+
+com.ferreteria.v1.services.CompraServiceTest.guardar_rechazaUnaCompraSinProductos -- Time elapsed: 0.005 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: Expected com.ferreteria.v1.exceptions.ValidacionException to be thrown, but nothing was thrown.
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:73)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:35)
+	at org.junit.jupiter.api.Assertions.assertThrows(Assertions.java:3115)
+	at com.ferreteria.v1.services.CompraServiceTest.guardar_rechazaUnaCompraSinProductos(CompraServiceTest.java:174)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:583)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+
+com.ferreteria.v1.services.CompraServiceTest.guardar_rechazaUnaCompraSinProveedor -- Time elapsed: 0.004 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: Expected com.ferreteria.v1.exceptions.ValidacionException to be thrown, but nothing was thrown.
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:73)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:35)
+	at org.junit.jupiter.api.Assertions.assertThrows(Assertions.java:3115)
+	at com.ferreteria.v1.services.CompraServiceTest.guardar_rechazaUnaCompraSinProveedor(CompraServiceTest.java:182)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:583)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+
+com.ferreteria.v1.services.CompraServiceTest.guardar_rechazaCantidadCero -- Time elapsed: 0.006 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: Expected com.ferreteria.v1.exceptions.ValidacionException to be thrown, but nothing was thrown.
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:73)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:35)
+	at org.junit.jupiter.api.Assertions.assertThrows(Assertions.java:3115)
+	at com.ferreteria.v1.services.CompraServiceTest.guardar_rechazaCantidadCero(CompraServiceTest.java:151)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:583)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+
+com.ferreteria.v1.services.CompraServiceTest.guardar_compraRecibidaRegistraUnMovimientoDeEntrada -- Time elapsed: 0.017 s <<< FAILURE!
+Wanted but not invoked:
+inventarioRepository.save(
+    <Capturing argument: Inventario>
+);
+-> at com.ferreteria.v1.services.CompraServiceTest.guardar_compraRecibidaRegistraUnMovimientoDeEntrada(CompraServiceTest.java:140)
+Actually, there were zero interactions with this mock.
+
+	at com.ferreteria.v1.services.CompraServiceTest.guardar_compraRecibidaRegistraUnMovimientoDeEntrada(CompraServiceTest.java:140)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:583)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+

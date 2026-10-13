@@ -1,0 +1,26 @@
+-------------------------------------------------------------------------------
+Test set: com.ferreteria.v1.services.VentaServiceTest
+-------------------------------------------------------------------------------
+Tests run: 21, Failures: 2, Errors: 0, Skipped: 0, Time elapsed: 0.353 s <<< FAILURE! -- in com.ferreteria.v1.services.VentaServiceTest
+com.ferreteria.v1.services.VentaServiceTest.registrarVenta_rechazaCantidadNegativa_yNoSumaStock -- Time elapsed: 0.008 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: Expected com.ferreteria.v1.exceptions.ValidacionException to be thrown, but nothing was thrown.
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:73)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:35)
+	at org.junit.jupiter.api.Assertions.assertThrows(Assertions.java:3115)
+	at com.ferreteria.v1.services.VentaServiceTest.registrarVenta_rechazaCantidadNegativa_yNoSumaStock(VentaServiceTest.java:169)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:583)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+
+com.ferreteria.v1.services.VentaServiceTest.registrarVenta_rechazaCantidadCero -- Time elapsed: 0.006 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: Expected com.ferreteria.v1.exceptions.ValidacionException to be thrown, but nothing was thrown.
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:152)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:73)
+	at org.junit.jupiter.api.AssertThrows.assertThrows(AssertThrows.java:35)
+	at org.junit.jupiter.api.Assertions.assertThrows(Assertions.java:3115)
+	at com.ferreteria.v1.services.VentaServiceTest.registrarVenta_rechazaCantidadCero(VentaServiceTest.java:161)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:583)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1612)
+

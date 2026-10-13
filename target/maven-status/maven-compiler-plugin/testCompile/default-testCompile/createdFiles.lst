@@ -1,5 +1,15 @@
+com\ferreteria\v1\services\VentaServiceTest.class
+com\ferreteria\v1\controllers\CategoriaControllerTest.class
+com\ferreteria\v1\services\ClienteServiceTest.class
+com\ferreteria\v1\services\CompraServiceTest.class
 com\ferreteria\v1\services\ProductoServiceTest.class
+com\ferreteria\v1\services\UsuarioServiceTest.class
 com\ferreteria\v1\ValidadorTest.class
 com\ferreteria\v1\V1ApplicationTests.class
-com\ferreteria\v1\services\DevolucionServiceTest.class
 com\ferreteria\v1\services\InventarioServiceTest.class
+com\ferreteria\v1\services\InventarioServiceListadoTest.class
+com\ferreteria\v1\ValidadorExtraTest.class
+com\ferreteria\v1\services\ProveedorServiceTest.class
+com\ferreteria\v1\services\DevolucionServiceVinculoTest.class
+com\ferreteria\v1\services\ProductoServiceExtraTest.class
+com\ferreteria\v1\services\DevolucionServiceTest.class
