@@ -2,7 +2,6 @@ package com.ferreteria.v1.credito;
 
 import java.math.BigDecimal;
 
-/** Esqueleto (fase Red): aplicarPago todavia no hace nada. */
 public class CuentaPorCobrar {
 
     private BigDecimal saldo;
@@ -13,6 +12,7 @@ public class CuentaPorCobrar {
     }
 
     public void aplicarPago(BigDecimal monto) {
+        saldo = saldo.subtract(monto);
     }
 
     public BigDecimal getSaldo()    { return saldo; }
