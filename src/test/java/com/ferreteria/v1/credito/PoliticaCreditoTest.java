@@ -21,4 +21,23 @@ class PoliticaCreditoTest {
 
         assertEquals("Indica la fecha de vencimiento del crédito.", ex.getMessage());
     }
+
+    @Test
+    void vencimientoIgualAHoySeRechaza_valorLimite() {
+        ValidacionException ex = assertThrows(ValidacionException.class,
+                () -> politica.validarVencimiento(hoy, hoy));
+
+        assertEquals("La fecha de vencimiento debe ser posterior a hoy.", ex.getMessage());
+    }
+
+    @Test
+    void vencimientoEnElPasadoSeRechaza() {
+        assertThrows(ValidacionException.class,
+                () -> politica.validarVencimiento(hoy.minusDays(1), hoy));
+    }
+
+    @Test
+    void vencimientoDeMananaEsValido_valorLimite() {
+        assertDoesNotThrow(() -> politica.validarVencimiento(hoy.plusDays(1), hoy));
+    }
 }

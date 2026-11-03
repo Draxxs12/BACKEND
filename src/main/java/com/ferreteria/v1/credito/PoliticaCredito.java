@@ -9,6 +9,10 @@ public class PoliticaCredito {
     public void validarVencimiento(LocalDate vencimiento, LocalDate hoy) {
         if (vencimiento == null) {
             throw new ValidacionException("Indica la fecha de vencimiento del crédito.");
+        } else {
+            if (!vencimiento.isAfter(hoy)) {
+                throw new ValidacionException("La fecha de vencimiento debe ser posterior a hoy.");
+            }
         }
     }
 }
