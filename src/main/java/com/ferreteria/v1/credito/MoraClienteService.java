@@ -5,19 +5,24 @@ import java.time.LocalDate;
 
 public class MoraClienteService {
 
+    static final int DIAS_AVISO = 3;   // unica fuente del plazo de aviso
+
     public EstadoMora calcularEstado(BigDecimal saldoPendiente, LocalDate vencimiento, LocalDate hoy) {
-        if (saldoPendiente != null && saldoPendiente.signum() > 0) {
-            if (hoy.isAfter(vencimiento)) {
-                return EstadoMora.MOROSO;
-            } else {
-                if (!hoy.plusDays(3).isBefore(vencimiento)) {
-                    return EstadoMora.POR_VENCER;
-                } else {
-                    return EstadoMora.AL_DIA;
-                }
-            }
-        } else {
-            return EstadoMora.AL_DIA;
-        }
+        if (!tieneDeuda(saldoPendiente))     return EstadoMora.AL_DIA;
+        if (estaVencida(vencimiento, hoy))   return EstadoMora.MOROSO;
+        if (estaPorVencer(vencimiento, hoy)) return EstadoMora.POR_VENCER;
+        return EstadoMora.AL_DIA;
+    }
+
+    private boolean tieneDeuda(BigDecimal saldo) {
+        return saldo != null && saldo.signum() > 0;
+    }
+
+    private boolean estaVencida(LocalDate vencimiento, LocalDate hoy) {
+        return hoy.isAfter(vencimiento);
+    }
+
+    private boolean estaPorVencer(LocalDate vencimiento, LocalDate hoy) {
+        return !hoy.plusDays(DIAS_AVISO).isBefore(vencimiento);
     }
 }
