@@ -20,4 +20,30 @@ class MoraClienteServiceTest {
 
         assertEquals(EstadoMora.MOROSO, estado);
     }
+
+    @Test
+    void facturaVencidaAyerEsMorosa_valorLimite() {
+        assertEquals(EstadoMora.MOROSO, service.calcularEstado(deuda, hoy.minusDays(1), hoy));
+    }
+
+    @Test
+    void facturaQueVenceHoyEstaPorVencer_valorLimite() {
+        assertEquals(EstadoMora.POR_VENCER, service.calcularEstado(deuda, hoy, hoy));
+    }
+
+    @Test
+    void facturaQueVenceEnTresDiasEstaPorVencer_valorLimite() {
+        assertEquals(EstadoMora.POR_VENCER, service.calcularEstado(deuda, hoy.plusDays(3), hoy));
+    }
+
+    @Test
+    void facturaQueVenceEnCuatroDiasEstaAlDia_valorLimite() {
+        assertEquals(EstadoMora.AL_DIA, service.calcularEstado(deuda, hoy.plusDays(4), hoy));
+    }
+
+    @Test
+    void clienteSinSaldoEstaAlDiaAunqueLaFacturaEsteVencida() {
+        assertEquals(EstadoMora.AL_DIA, service.calcularEstado(BigDecimal.ZERO, hoy.minusDays(30), hoy));
+        assertEquals(EstadoMora.AL_DIA, service.calcularEstado(null, hoy.minusDays(30), hoy));
+    }
 }
