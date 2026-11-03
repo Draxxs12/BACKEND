@@ -11,15 +11,26 @@ public class NotificadorPago {
     }
 
     public ResultadoEnvio confirmarPago(String emailCliente, String factura, BigDecimal monto) {
-        if (emailCliente == null || emailCliente.isBlank()) {
+        if (!tieneCorreo(emailCliente)) {
             return ResultadoEnvio.SIN_CORREO;
         }
         try {
-            correo.enviar(emailCliente, "Pago recibido " + factura,
-                          "Hemos registrado su pago de S/ " + monto + " de la factura " + factura + ".");
+            correo.enviar(emailCliente, asunto(factura), cuerpo(factura, monto));
             return ResultadoEnvio.ENVIADO;
         } catch (RuntimeException e) {
-            return ResultadoEnvio.PENDIENTE;
+            return ResultadoEnvio.PENDIENTE;   // el pago ya esta guardado; el envio se reintenta despues
         }
+    }
+
+    private boolean tieneCorreo(String email) {
+        return email != null && !email.isBlank();
+    }
+
+    private String asunto(String factura) {
+        return "Pago recibido " + factura;
+    }
+
+    private String cuerpo(String factura, BigDecimal monto) {
+        return "Hemos registrado su pago de S/ " + monto + " de la factura " + factura + ".";
     }
 }
