@@ -25,4 +25,29 @@ class NotificadorPagoTest {
         assertEquals(1, enviados.size());
         assertTrue(enviados.get(0).startsWith("ventas@losandes.pe|"));
     }
+
+    @Test
+    void elAsuntoLlevaElNumeroDeFactura() {
+        new NotificadorPago(correoOk).confirmarPago("ventas@losandes.pe", "F001-00000045", monto);
+
+        assertTrue(enviados.get(0).contains("F001-00000045"));
+    }
+
+    @Test
+    void siElServicioDeCorreoFallaElResultadoEsPendienteYNoSePropagaElError() {
+        EnviadorCorreo caido = (destino, asunto, cuerpo) -> { throw new IllegalStateException("Gmail caído"); };
+
+        ResultadoEnvio r = new NotificadorPago(caido).confirmarPago("ventas@losandes.pe", "F001-00000045", monto);
+
+        assertEquals(ResultadoEnvio.PENDIENTE, r);
+    }
+
+    @Test
+    void sinCorreoRegistradoNoSeEnviaNada() {
+        NotificadorPago notificador = new NotificadorPago(correoOk);
+
+        assertEquals(ResultadoEnvio.SIN_CORREO, notificador.confirmarPago("  ", "F001-00000045", monto));
+        assertEquals(ResultadoEnvio.SIN_CORREO, notificador.confirmarPago(null, "F001-00000045", monto));
+        assertTrue(enviados.isEmpty());
+    }
 }
