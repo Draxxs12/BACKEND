@@ -11,7 +11,7 @@ on:
         required: true
         default: carga
         type: choice
-        options: [humo, carga, pico, estres]
+        options: [humo, carga, pico, concurrencia, estres]
 
 jobs:
   rendimiento:
