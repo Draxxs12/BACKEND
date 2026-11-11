@@ -37,6 +37,10 @@ El token dura 4 h (el backend usa 8 h). Para la resistencia de 8 h, genera uno c
 
 `venta_pico.js`, `estres.js` y `resistencia.js` venden el mismo producto muchas veces: antes de correrlos sube su stock (`UPDATE productos SET stock = 1000000 WHERE id = 1;`) o se agotará y los rechazos contarán como errores.
 
+## Ejecutar HU-S4-03 desde GitHub Actions
+
+En **Actions → Rendimiento → Run workflow**, selecciona `concurrencia`. El job prepara el producto `id = 1` con stock 50, registra los conteos iniciales, ejecuta 100 solicitudes simultáneas de una unidad y valida automáticamente que queden 50 ventas rechazadas, stock 0, 50 detalles nuevos y 50 movimientos de salida nuevos. Si cualquiera de estas invariantes no se cumple, el job falla. Esta ejecución usa una base MySQL efímera de CI; no modifica datos de producción.
+
 ## Verificación SQL de HU-S4-03 (después de `stock_concurrente.js`)
 Antes de ejecutar deja el producto con stock **exactamente 50** (`UPDATE productos SET stock = 50 WHERE id = 1;`). Después:
 
