@@ -1,0 +1,16 @@
+# Maven
+target/
+
+# Logs y temporales
+*.log
+*.tmp
+
+# Configuracion local y secretos
+.env
+.env.*
+src/main/resources/application-local.properties
+
+# IDE
+.idea/
+*.iml
+.vscode/

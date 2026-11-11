@@ -2,6 +2,7 @@ package com.ferreteria.v1.services;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,14 +27,19 @@ public class ReporteService {
 
     /** Libro Mayor Financiero: ingresos por ventas, egresos por compras, CxP pendientes. */
     public Map<String, Object> libroMayor(LocalDate desde, LocalDate hasta) {
+        if (desde != null && hasta != null && desde.isAfter(hasta)) {
+            throw new IllegalArgumentException("La fecha inicial no puede ser posterior a la fecha final.");
+        }
+        LocalDateTime inicio = desde == null ? null : desde.atStartOfDay();
+        LocalDateTime finExclusivo = hasta == null ? null : hasta.plusDays(1).atStartOfDay();
         Map<String, Object> r = new LinkedHashMap<>();
 
         double ingresos = 0.0;
         List<Map<String, Object>> filasVentas = new ArrayList<>();
-        for (Venta v : ventaRepository.findAll()) {
+        for (Venta v : ventaRepository.buscarParaLibroMayor(inicio, finExclusivo)) {
             if (v.getCreatedAt() == null) continue;
             LocalDate f = v.getCreatedAt().toLocalDate();
-            if (enRango(f, desde, hasta) && v.getEstado() == Venta.EstadoVenta.Completada) {
+            if (v.getEstado() == Venta.EstadoVenta.Completada) {
                 ingresos += v.getTotal() != null ? v.getTotal() : 0.0;
                 Map<String, Object> fila = new LinkedHashMap<>();
                 fila.put("fecha", f.toString());
@@ -47,10 +53,9 @@ public class ReporteService {
         double egresos = 0.0;
         double cuentasPorPagar = 0.0;
         List<Map<String, Object>> filasCompras = new ArrayList<>();
-        for (Compra c : compraRepository.findAll()) {
+        for (Compra c : compraRepository.buscarParaLibroMayor(inicio, finExclusivo)) {
             if (c.getCreatedAt() == null) continue;
             LocalDate f = c.getCreatedAt().toLocalDate();
-            if (!enRango(f, desde, hasta)) continue;
             double total = c.getTotal() != null ? c.getTotal().doubleValue() : 0.0;
             if (c.getEstado() == Compra.Estado.Recibida) {
                 egresos += total;
@@ -100,12 +105,6 @@ public class ReporteService {
         r.put("totalProductos", filas.size());
         r.put("productos", filas);
         return r;
-    }
-
-    private boolean enRango(LocalDate f, LocalDate desde, LocalDate hasta) {
-        if (desde != null && f.isBefore(desde)) return false;
-        if (hasta != null && f.isAfter(hasta))  return false;
-        return true;
     }
 
     private double redondear(double v) {

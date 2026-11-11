@@ -1,0 +1,554 @@
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..8f2f3a1
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,16 @@
++# Maven
++target/
++
++# Logs y temporales
++*.log
++*.tmp
++
++# Configuracion local y secretos
++.env
++.env.*
++src/main/resources/application-local.properties
++
++# IDE
++.idea/
++*.iml
++.vscode/
++
+diff --git a/src/main/java/com/ferreteria/v1/repositories/ProductoRepository.java b/src/main/java/com/ferreteria/v1/repositories/ProductoRepository.java
+--- a/src/main/java/com/ferreteria/v1/repositories/ProductoRepository.java
++++ b/src/main/java/com/ferreteria/v1/repositories/ProductoRepository.java
+@@ -1,15 +1,27 @@
+ package com.ferreteria.v1.repositories;
+
+ import com.ferreteria.v1.models.Producto;
++import jakarta.persistence.LockModeType;
+ import org.springframework.data.jpa.repository.JpaRepository;
++import org.springframework.data.jpa.repository.Lock;
++import org.springframework.data.jpa.repository.Query;
++import org.springframework.data.repository.query.Param;
+ import org.springframework.stereotype.Repository;
+ import java.util.List;
+ import java.util.Optional;
+
+ @Repository
+ public interface ProductoRepository extends JpaRepository<Producto, Integer> {
+     List<Producto> findByActivoTrue();
+     List<Producto> findByActivoTrueAndNombreContainingIgnoreCase(String nombre);
+     List<Producto> findByStockLessThanEqualAndActivoTrue(Integer stock);
+     Optional<Producto> findByCodigo(String codigo);
++
++    /**
++     * Bloquea el registro del producto hasta finalizar la transaccion.
++     * Debe invocarse desde un metodo @Transactional.
++     */
++    @Lock(LockModeType.PESSIMISTIC_WRITE)
++    @Query("SELECT p FROM Producto p WHERE p.id = :id")
++    Optional<Producto> buscarPorIdParaActualizar(@Param("id") Integer id);
+ }
+diff --git a/src/main/java/com/ferreteria/v1/repositories/VentaRepository.java b/src/main/java/com/ferreteria/v1/repositories/VentaRepository.java
+--- a/src/main/java/com/ferreteria/v1/repositories/VentaRepository.java
++++ b/src/main/java/com/ferreteria/v1/repositories/VentaRepository.java
+@@ -1,15 +1,34 @@
+ package com.ferreteria.v1.repositories;
+
+ import com.ferreteria.v1.models.Venta;
++import java.time.LocalDateTime;
+ import org.springframework.data.jpa.repository.JpaRepository;
+ import org.springframework.data.jpa.repository.Query;
++import org.springframework.data.repository.query.Param;
+ import org.springframework.stereotype.Repository;
+ import java.util.List;
+
+ @Repository
+ public interface VentaRepository extends JpaRepository<Venta, Integer> {
+
+     List<Venta> findByClienteId(Integer clienteId);
+     List<Venta> findByUsuarioId(Integer usuarioId);
+     List<Venta> findByEstado(Venta.EstadoVenta estado);
+
++    /**
++     * Devuelve solamente las ventas del periodo solicitado.
++     * Los limites nulos permiten consultar periodos abiertos.
++     */
++    @Query("SELECT v FROM Venta v LEFT JOIN FETCH v.cliente "
++            + "WHERE (:desde IS NULL OR v.createdAt >= :desde) "
++            + "AND (:hastaExclusivo IS NULL OR v.createdAt < :hastaExclusivo) "
++            + "ORDER BY v.createdAt DESC")
++    List<Venta> buscarParaLibroMayor(
++            @Param("desde") LocalDateTime desde,
++            @Param("hastaExclusivo") LocalDateTime hastaExclusivo);
++
+     @Query("SELECT v.cliente.nombre, SUM(v.total) " +
+            "FROM Venta v " +
+            "WHERE v.estado = 'Completada' AND v.cliente IS NOT NULL " +
+            "GROUP BY v.cliente.nombre " +
+            "ORDER BY SUM(v.total) DESC")
+     List<Object[]> topClientesPorVentas();
+ }
+diff --git a/src/main/java/com/ferreteria/v1/repositories/CompraRepository.java b/src/main/java/com/ferreteria/v1/repositories/CompraRepository.java
+--- a/src/main/java/com/ferreteria/v1/repositories/CompraRepository.java
++++ b/src/main/java/com/ferreteria/v1/repositories/CompraRepository.java
+@@ -1,11 +1,32 @@
+ package com.ferreteria.v1.repositories;
+
++import java.time.LocalDateTime;
++import java.util.List;
+ import org.springframework.data.jpa.repository.JpaRepository;
++import org.springframework.data.jpa.repository.Lock;
++import org.springframework.data.jpa.repository.Query;
++import org.springframework.data.repository.query.Param;
+ import org.springframework.stereotype.Repository;
+
+ import com.ferreteria.v1.models.Compra;
++import jakarta.persistence.LockModeType;
+
+ @Repository
+ public interface CompraRepository extends JpaRepository<Compra, Integer> {
++
++    @Lock(LockModeType.PESSIMISTIC_WRITE)
++    @Query("SELECT c FROM Compra c WHERE c.id = :id")
++    java.util.Optional<Compra> buscarPorIdParaActualizar(@Param("id") Integer id);
++
++    @Query("SELECT c FROM Compra c LEFT JOIN FETCH c.proveedor "
++            + "WHERE (:desde IS NULL OR c.createdAt >= :desde) "
++            + "AND (:hastaExclusivo IS NULL OR c.createdAt < :hastaExclusivo) "
++            + "ORDER BY c.createdAt DESC")
++    List<Compra> buscarParaLibroMayor(
++            @Param("desde") LocalDateTime desde,
++            @Param("hastaExclusivo") LocalDateTime hastaExclusivo);
+ }
+diff --git a/src/main/java/com/ferreteria/v1/models/Venta.java b/src/main/java/com/ferreteria/v1/models/Venta.java
+--- a/src/main/java/com/ferreteria/v1/models/Venta.java
++++ b/src/main/java/com/ferreteria/v1/models/Venta.java
+@@ -5,7 +5,8 @@ import java.time.LocalDateTime;
+
+ @Entity
+-@Table(name = "ventas")
++@Table(name = "ventas", indexes = {
++        @Index(name = "idx_ventas_fecha_estado", columnList = "created_at, estado")
++})
+ public class Venta {
+
+     @Id
+diff --git a/src/main/java/com/ferreteria/v1/models/Compra.java b/src/main/java/com/ferreteria/v1/models/Compra.java
+--- a/src/main/java/com/ferreteria/v1/models/Compra.java
++++ b/src/main/java/com/ferreteria/v1/models/Compra.java
+@@ -15,6 +15,7 @@ import jakarta.persistence.GeneratedValue;
+ import jakarta.persistence.GenerationType;
+ import jakarta.persistence.Id;
++import jakarta.persistence.Index;
+ import jakarta.persistence.JoinColumn;
+ import jakarta.persistence.ManyToOne;
+ import jakarta.persistence.OneToMany;
+@@ -24,7 +25,9 @@ import jakarta.persistence.Table;
+
+ @Entity
+-@Table(name = "compras")
++@Table(name = "compras", indexes = {
++        @Index(name = "idx_compras_fecha_estado", columnList = "created_at, estado")
++})
+ public class Compra {
+
+     @Id
+diff --git a/src/main/java/com/ferreteria/v1/models/ContadorComprobante.java b/src/main/java/com/ferreteria/v1/models/ContadorComprobante.java
+new file mode 100644
+--- /dev/null
++++ b/src/main/java/com/ferreteria/v1/models/ContadorComprobante.java
+@@ -0,0 +1,29 @@
++package com.ferreteria.v1.models;
++
++import jakarta.persistence.Column;
++import jakarta.persistence.Entity;
++import jakarta.persistence.Id;
++import jakarta.persistence.Table;
++
++/**
++ * Contador transaccional por serie de comprobante.
++ * La tabla se crea mediante spring.jpa.hibernate.ddl-auto=update.
++ */
++@Entity
++@Table(name = "contador_comprobante")
++public class ContadorComprobante {
++
++    @Id
++    @Column(length = 10, nullable = false)
++    private String serie;
++
++    @Column(name = "ultimo_numero", nullable = false)
++    private Long ultimoNumero = 0L;
++
++    public String getSerie() {
++        return serie;
++    }
++
++    public void setSerie(String serie) {
++        this.serie = serie;
++    }
++
++    public Long getUltimoNumero() {
++        return ultimoNumero;
++    }
++
++    public void setUltimoNumero(Long ultimoNumero) {
++        this.ultimoNumero = ultimoNumero;
++    }
++}
+diff --git a/src/main/java/com/ferreteria/v1/repositories/ContadorComprobanteRepository.java b/src/main/java/com/ferreteria/v1/repositories/ContadorComprobanteRepository.java
+new file mode 100644
+--- /dev/null
++++ b/src/main/java/com/ferreteria/v1/repositories/ContadorComprobanteRepository.java
+@@ -0,0 +1,30 @@
++package com.ferreteria.v1.repositories;
++
++import com.ferreteria.v1.models.ContadorComprobante;
++import org.springframework.data.jpa.repository.JpaRepository;
++import org.springframework.data.jpa.repository.Modifying;
++import org.springframework.data.jpa.repository.Query;
++import org.springframework.data.repository.query.Param;
++import org.springframework.stereotype.Repository;
++
++@Repository
++public interface ContadorComprobanteRepository
++        extends JpaRepository<ContadorComprobante, String> {
++
++    /**
++     * Reserva el siguiente numero por serie en MySQL.
++     * En la primera ejecucion toma el maximo ya existente en ventas,
++     * para no reiniciar la numeracion historica.
++     */
++    @Modifying
++    @Query(value = "INSERT INTO contador_comprobante (serie, ultimo_numero) "
++            + "SELECT :serie, LAST_INSERT_ID(COALESCE(MAX(CAST(SUBSTRING(numero_comprobante, 6) "
++            + "AS UNSIGNED)), 0) + 1) FROM ventas "
++            + "WHERE numero_comprobante LIKE CONCAT(:serie, '-%') "
++            + "ON DUPLICATE KEY UPDATE ultimo_numero = LAST_INSERT_ID(ultimo_numero + 1)",
++            nativeQuery = true)
++    void reservarSiguiente(@Param("serie") String serie);
++
++    @Query(value = "SELECT LAST_INSERT_ID()", nativeQuery = true)
++    Long obtenerNumeroReservado();
++}
+diff --git a/src/main/java/com/ferreteria/v1/services/VentaService.java b/src/main/java/com/ferreteria/v1/services/VentaService.java
+--- a/src/main/java/com/ferreteria/v1/services/VentaService.java
++++ b/src/main/java/com/ferreteria/v1/services/VentaService.java
+@@ -18,6 +18,7 @@ import com.ferreteria.v1.repositories.InventarioRepository;
+ import com.ferreteria.v1.repositories.ProductoRepository;
+ import com.ferreteria.v1.repositories.VentaRepository;
++import com.ferreteria.v1.repositories.ContadorComprobanteRepository;
+
+ @Service
+ public class VentaService {
+@@ -36,6 +37,9 @@ public class VentaService {
+     @Autowired
+     private CajaRepository cajaRepository;
+
++    @Autowired
++    private ContadorComprobanteRepository contadorComprobanteRepository;
++
+     public List<Venta> listarTodas() {
+         return ventaRepository.findAll();
+     }
+@@ -53,7 +57,7 @@ public class VentaService {
+         }
+         for (DetalleVenta detalle : detalleVentaRepository.findByVentaId(id)) {
+             Producto producto = detalle.getProducto();
+-            if (producto == null) continue;
++            if (producto == null) continue;
++            Integer productoId = producto.getId();
++            producto = productoRepository.buscarPorIdParaActualizar(productoId)
++                    .orElseThrow(() -> new RuntimeException("Producto no encontrado id=" + productoId));
+             int stockAntes   = producto.getStock();
+             int stockDespues = stockAntes + detalle.getCantidad();
+             producto.setStock(stockDespues);
+@@ -80,12 +84,14 @@ public class VentaService {
+ public Venta registrarVenta(Venta venta, List<DetalleVenta> detalles, Usuario usuarioActual) {
+     venta.setUsuario(usuarioActual);
+
+-    // Autogenera el número: serie F001 para Factura, B001 para Boleta
++    // Reserva un numero seguro por serie, incluso con ventas simultaneas.
+     if (venta.getNumeroComprobante() == null || venta.getNumeroComprobante().isBlank()) {
+-        long count = ventaRepository.count();
+         String serie = venta.getTipoComprobante() == Venta.TipoComprobante.Factura ? "F001" : "B001";
+-        venta.setNumeroComprobante(serie + String.format("-%05d", count + 1));
++        contadorComprobanteRepository.reservarSiguiente(serie);
++        Long numero = contadorComprobanteRepository.obtenerNumeroReservado();
++        if (numero == null || numero <= 0) {
++            throw new IllegalStateException("No se pudo reservar el numero del comprobante.");
++        }
++        venta.setNumeroComprobante(serie + String.format("-%05d", numero));
+     }
+
+     Venta ventaGuardada = ventaRepository.save(venta);
+@@ -95,18 +101,22 @@ public Venta registrarVenta(Venta venta, List<DetalleVenta> detalles, Usuario usuarioActual) {
+         detalle.setVenta(ventaGuardada);
+
+-        Producto producto = productoRepository.findById(
++        Producto producto = productoRepository.buscarPorIdParaActualizar(
+             detalle.getProducto().getId()
+         ).orElseThrow(() -> new RuntimeException(
+             "Producto no encontrado id=" + detalle.getProducto().getId()
+         ));
+
++        if (detalle.getCantidad() == null || detalle.getCantidad() <= 0) {
++            throw new IllegalArgumentException("La cantidad vendida debe ser mayor que cero.");
++        }
++
+         if (producto.getStock() < detalle.getCantidad()) {
+             throw new RuntimeException(
+                 "Stock insuficiente para \"" + producto.getNombre() +
+                 "\". Disponible: " + producto.getStock() +
+                 ", solicitado: " + detalle.getCantidad()
+             );
+         }
+
+         double subDetalle = detalle.getCantidad() * detalle.getPrecioUnitario();
+
+diff --git a/src/main/java/com/ferreteria/v1/services/CompraService.java b/src/main/java/com/ferreteria/v1/services/CompraService.java
+--- a/src/main/java/com/ferreteria/v1/services/CompraService.java
++++ b/src/main/java/com/ferreteria/v1/services/CompraService.java
+@@ -13,8 +13,11 @@ import com.ferreteria.v1.models.Compra.Estado;
+ import com.ferreteria.v1.models.DetalleCompra;
++import com.ferreteria.v1.models.Inventario;
+ import com.ferreteria.v1.models.Producto;
+ import com.ferreteria.v1.repositories.CompraRepository;
++import com.ferreteria.v1.repositories.InventarioRepository;
+ import com.ferreteria.v1.repositories.ProductoRepository;
+
+ @Service
+@@ -24,6 +27,8 @@ public class CompraService {
+
+     @Autowired private ProductoRepository      productoRepository;
+
++    @Autowired private InventarioRepository    inventarioRepository;
++
+     public List<Compra> listarTodos() {
+         return compraRepository.findAll();
+     }
+@@ -41,8 +46,8 @@ public Compra guardar(Compra compra) {
+         Estado estadoAnterior = null;
+         if (!esNueva) {
+-            Compra anterior = compraRepository.findById(compra.getId()).orElse(null);
++            Compra anterior = compraRepository.buscarPorIdParaActualizar(compra.getId()).orElse(null);
+             if (anterior != null) estadoAnterior = anterior.getEstado();
+         }
+@@ -82,12 +87,26 @@ public Compra guardar(Compra compra) {
+         if (debeAumentarStock) {
+             for (DetalleCompra d : guardada.getDetalles()) {
+                 Producto p = productoRepository
+-                                .findById(d.getProducto().getId())
++                                .buscarPorIdParaActualizar(d.getProducto().getId())
+                                 .orElse(null);
+                 if (p != null) {
+-                    p.setStock(p.getStock() + d.getCantidad());
++                    int stockAntes = p.getStock() == null ? 0 : p.getStock();
++                    int stockDespues = stockAntes + d.getCantidad();
++                    p.setStock(stockDespues);
+                     productoRepository.save(p);
++
++                    Inventario movimiento = new Inventario();
++                    movimiento.setProducto(p);
++                    movimiento.setUsuario(guardada.getUsuario());
++                    movimiento.setTipo(Inventario.TipoMovimiento.Entrada);
++                    movimiento.setCantidad(d.getCantidad());
++                    movimiento.setStockAntes(stockAntes);
++                    movimiento.setStockDespues(stockDespues);
++                    movimiento.setMotivo("Compra recibida " + guardada.getNumeroOrden());
++                    inventarioRepository.save(movimiento);
+                 }
+             }
+         }
+diff --git a/src/main/java/com/ferreteria/v1/services/ReporteService.java b/src/main/java/com/ferreteria/v1/services/ReporteService.java
+--- a/src/main/java/com/ferreteria/v1/services/ReporteService.java
++++ b/src/main/java/com/ferreteria/v1/services/ReporteService.java
+@@ -1,6 +1,7 @@
+ package com.ferreteria.v1.services;
+
+ import java.math.BigDecimal;
++import java.time.LocalDateTime;
+ import java.time.LocalDate;
+ import java.util.ArrayList;
+ import java.util.LinkedHashMap;
+@@ -20,6 +21,12 @@ public class ReporteService {
+     @Autowired private ProductoRepository productoRepository;
+
+     /** Libro Mayor Financiero: ingresos por ventas, egresos por compras, CxP pendientes. */
+     public Map<String, Object> libroMayor(LocalDate desde, LocalDate hasta) {
++        if (desde != null && hasta != null && desde.isAfter(hasta)) {
++            throw new IllegalArgumentException("La fecha inicial no puede ser posterior a la fecha final.");
++        }
++        LocalDateTime inicio = desde == null ? null : desde.atStartOfDay();
++        LocalDateTime finExclusivo = hasta == null ? null : hasta.plusDays(1).atStartOfDay();
++
+         Map<String, Object> r = new LinkedHashMap<>();
+
+         double ingresos = 0.0;
+         List<Map<String, Object>> filasVentas = new ArrayList<>();
+-        for (Venta v : ventaRepository.findAll()) {
++        for (Venta v : ventaRepository.buscarParaLibroMayor(inicio, finExclusivo)) {
+             if (v.getCreatedAt() == null) continue;
+             LocalDate f = v.getCreatedAt().toLocalDate();
+-            if (enRango(f, desde, hasta) && v.getEstado() == Venta.EstadoVenta.Completada) {
++            if (v.getEstado() == Venta.EstadoVenta.Completada) {
+                 ingresos += v.getTotal() != null ? v.getTotal() : 0.0;
+                 Map<String, Object> fila = new LinkedHashMap<>();
+                 fila.put("fecha", f.toString());
+@@ -37,10 +44,9 @@ public class ReporteService {
+         double egresos = 0.0;
+         double cuentasPorPagar = 0.0;
+         List<Map<String, Object>> filasCompras = new ArrayList<>();
+-        for (Compra c : compraRepository.findAll()) {
++        for (Compra c : compraRepository.buscarParaLibroMayor(inicio, finExclusivo)) {
+             if (c.getCreatedAt() == null) continue;
+             LocalDate f = c.getCreatedAt().toLocalDate();
+-            if (!enRango(f, desde, hasta)) continue;
+             double total = c.getTotal() != null ? c.getTotal().doubleValue() : 0.0;
+             if (c.getEstado() == Compra.Estado.Recibida) {
+                 egresos += total;
+@@ -85,12 +91,6 @@ public class ReporteService {
+         return r;
+     }
+
+-    private boolean enRango(LocalDate f, LocalDate desde, LocalDate hasta) {
+-        if (desde != null && f.isBefore(desde)) return false;
+-        if (hasta != null && f.isAfter(hasta))  return false;
+-        return true;
+-    }
+-
+     private double redondear(double v) {
+         return Math.round(v * 100.0) / 100.0;
+     }
+diff --git a/src/main/java/com/ferreteria/v1/services/IaService.java b/src/main/java/com/ferreteria/v1/services/IaService.java
+--- a/src/main/java/com/ferreteria/v1/services/IaService.java
++++ b/src/main/java/com/ferreteria/v1/services/IaService.java
+@@ -5,6 +5,7 @@ import java.net.http.HttpClient;
+ import java.net.http.HttpRequest;
+ import java.net.http.HttpResponse;
+ import java.time.LocalDate;
++import java.time.Duration;
+ import java.util.List;
+ import java.util.Map;
+
+@@ -29,6 +30,11 @@ public class IaService {
+
+     private final ReporteService reporteService;
+     private final ObjectMapper mapper = new ObjectMapper();
++    private final HttpClient httpClient = HttpClient.newBuilder()
++            .connectTimeout(Duration.ofSeconds(3))
++            .build();
++
++    private static final Duration TIEMPO_MAXIMO_RESPUESTA = Duration.ofSeconds(5);
+
+     public IaService(ReporteService reporteService) {
+         this.reporteService = reporteService;
+@@ -105,15 +111,23 @@ public class IaService {
+                 .header("Content-Type", "application/json")
+                 .header("Authorization", "Bearer " + apiKey)
+                 .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
++                .timeout(TIEMPO_MAXIMO_RESPUESTA)
+                 .build();
+
+-        HttpResponse<String> resp = HttpClient.newHttpClient()
+-                .send(request, HttpResponse.BodyHandlers.ofString());
++        HttpResponse<String> resp = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
++
++        if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
++            throw new IllegalStateException("El proveedor de IA respondio HTTP " + resp.statusCode());
++        }
+
+         JsonNode root = mapper.readTree(resp.body());
+-        return root.path("choices").get(0).path("message").path("content").asText();
++        JsonNode choices = root.path("choices");
++        if (!choices.isArray() || choices.isEmpty()) {
++            throw new IllegalStateException("La respuesta de IA no contiene resultados.");
++        }
++        String contenido = choices.path(0).path("message").path("content").asText();
++        if (contenido == null || contenido.isBlank()) {
++            throw new IllegalStateException("La respuesta de IA llego vacia.");
++        }
++        return contenido;
+     }
+
+     // ── Análisis local automático (heurístico) ───────────────────────────────
+diff --git a/src/main/resources/application.properties b/src/main/resources/application.properties
+--- a/src/main/resources/application.properties
++++ b/src/main/resources/application.properties
+@@ -9,10 +9,10 @@ spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+ # ─── JPA / Hibernate ─────────────────────────────────────────
+ spring.jpa.hibernate.ddl-auto=update
+-spring.jpa.show-sql=true
++spring.jpa.show-sql=false
+ spring.jpa.database-platform=org.hibernate.dialect.MySQLDialect
+-spring.jpa.properties.hibernate.format_sql=true
++spring.jpa.properties.hibernate.format_sql=false
+
+ # ─── Servidor ────────────────────────────────────────────────
+ server.port=8080
++
++# ─── Observabilidad (Spring Boot Actuator) ────────────────────
++management.endpoints.web.exposure.include=health,info,metrics,prometheus
++management.endpoint.health.show-details=when_authorized
+
+ # ─── Gmail API (OAuth 2.0) ───────────────────────────────────
+ # La cuenta configurada aquí es SOLO la cuenta emisora.
+diff --git a/pom.xml b/pom.xml
+--- a/pom.xml
++++ b/pom.xml
+@@ -10,6 +10,7 @@
+ 	<properties><java.version>17</java.version></properties>
+ 	<dependencies>
+ 		<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>
+ 		<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
++		<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
+ 		<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-mail</artifactId></dependency>
+ 		<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-devtools</artifactId><scope>runtime</scope><optional>true</optional></dependency>
+ 		<dependency><groupId>com.mysql</groupId><artifactId>mysql-connector-j</artifactId><scope>runtime</scope></dependency>
++		<dependency><groupId>io.micrometer</groupId><artifactId>micrometer-registry-prometheus</artifactId></dependency>
+ 		<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+diff --git a/README-PATCH-CORRECCIONES.md b/README-PATCH-CORRECCIONES.md
+new file mode 100644
+--- /dev/null
++++ b/README-PATCH-CORRECCIONES.md
+@@ -0,0 +1,32 @@
++# Correcciones tecnicas incluidas
++
++Este patch modifica el backend sin tocar AuthController, el flujo OAuth de Gmail,
++EmailService ni las credenciales de Google.
++
++## Cambios
++
++1. Bloqueo pesimista de productos durante ventas, anulaciones y recepcion de compras.
++2. Numeracion de comprobantes por serie mediante contador transaccional MySQL.
++3. Registro de movimientos de entrada al recibir compras.
++4. Consultas de libro mayor filtradas en la base de datos por rango de fechas.
++5. Timeout y validacion de respuestas para la llamada externa de IA.
++6. Actuator y Prometheus para metricas.
++7. Se desactiva el SQL completo en logs y se agrega .gitignore.
++
++## Importante
++
++- Requiere MySQL, porque la reserva del numero usa LAST_INSERT_ID y ON DUPLICATE KEY UPDATE.
++- La tabla contador_comprobante se crea con Hibernate ddl-auto=update.
++- Antes de producción, respaldar la base de datos.
++- Los endpoints Actuator quedan sujetos a las reglas actuales de Spring Security.
++- Este patch no elimina target/ del historial de Git ni borra secretos que ya fueron publicados.
++- No contiene pruebas de carga ni afirma que se hayan ejecutado.
++
++## Aplicacion
++
++Desde la raiz del repositorio:
++
++    git status
++    git apply --check correcciones-ferreteria.patch
++    git apply correcciones-ferreteria.patch
++    mvnw.cmd clean test
++
++Si git apply --check falla, no fuerces la aplicacion: restaura el repositorio y solicita
++una revision del patch y de la version actual de los archivos.

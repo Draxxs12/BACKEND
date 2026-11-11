@@ -24,14 +24,6 @@ C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\controllers\Usuari
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\controllers\UsuarioRequest.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\controllers\VentaController.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\controllers\VentaRequest.java
-C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\CuentaPorCobrar.java
-C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\EnviadorCorreo.java
-C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\EstadoCuenta.java
-C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\EstadoMora.java
-C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\MoraClienteService.java
-C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\NotificadorPago.java
-C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\PoliticaCredito.java
-C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\ResultadoEnvio.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\exceptions\GlobalExceptionHandler.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\exceptions\RecursoNoEncontradoException.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\exceptions\ValidacionException.java
@@ -42,6 +34,7 @@ C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\models\Categoria.j
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\models\Cliente.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\models\Compra.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\models\Configuracion.java
+C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\models\ContadorComprobante.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\models\DetalleCompra.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\models\DetalleDevolucion.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\models\DetalleVenta.java
@@ -61,6 +54,7 @@ C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\repositories\Categ
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\repositories\ClienteRepository.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\repositories\CompraRepository.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\repositories\ConfiguracionRepository.java
+C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\repositories\ContadorComprobanteRepository.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\repositories\DetalleCompraRepository.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\repositories\DetalleDevolucionRepository.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\repositories\DetalleVentaRepository.java

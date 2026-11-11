@@ -10,8 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.ferreteria.v1.models.Compra;
 import com.ferreteria.v1.models.Compra.Estado;
 import com.ferreteria.v1.models.DetalleCompra;
+import com.ferreteria.v1.models.Inventario;
 import com.ferreteria.v1.models.Producto;
 import com.ferreteria.v1.repositories.CompraRepository;
+import com.ferreteria.v1.repositories.InventarioRepository;
 import com.ferreteria.v1.repositories.ProductoRepository;
 
 @Service
@@ -20,6 +22,8 @@ public class CompraService {
     @Autowired private CompraRepository        compraRepository;
 
     @Autowired private ProductoRepository      productoRepository;
+
+    @Autowired private InventarioRepository    inventarioRepository;
 
     public List<Compra> listarTodos() {
         return compraRepository.findAll();
@@ -37,7 +41,7 @@ public class CompraService {
 
         Estado estadoAnterior = null;
         if (!esNueva) {
-            Compra anterior = compraRepository.findById(compra.getId()).orElse(null);
+            Compra anterior = compraRepository.buscarPorIdParaActualizar(compra.getId()).orElse(null);
             if (anterior != null) estadoAnterior = anterior.getEstado();
         }
 
@@ -74,11 +78,23 @@ public class CompraService {
         if (debeAumentarStock) {
             for (DetalleCompra d : guardada.getDetalles()) {
                 Producto p = productoRepository
-                                .findById(d.getProducto().getId())
+                                .buscarPorIdParaActualizar(d.getProducto().getId())
                                 .orElse(null);
                 if (p != null) {
-                    p.setStock(p.getStock() + d.getCantidad());
+                    int stockAntes = p.getStock() == null ? 0 : p.getStock();
+                    int stockDespues = stockAntes + d.getCantidad();
+                    p.setStock(stockDespues);
                     productoRepository.save(p);
+
+                    Inventario movimiento = new Inventario();
+                    movimiento.setProducto(p);
+                    movimiento.setUsuario(guardada.getUsuario());
+                    movimiento.setTipo(Inventario.TipoMovimiento.Entrada);
+                    movimiento.setCantidad(d.getCantidad());
+                    movimiento.setStockAntes(stockAntes);
+                    movimiento.setStockDespues(stockDespues);
+                    movimiento.setMotivo("Compra recibida " + guardada.getNumeroOrden());
+                    inventarioRepository.save(movimiento);
                 }
             }
         }

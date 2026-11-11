@@ -16,13 +16,16 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "compras")
+@Table(name = "compras", indexes = {
+        @Index(name = "idx_compras_fecha_estado", columnList = "created_at, estado")
+})
 public class Compra {
 
     @Id

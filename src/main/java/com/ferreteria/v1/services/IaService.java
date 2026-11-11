@@ -5,6 +5,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +35,10 @@ public class IaService {
 
     private final ReporteService reporteService;
     private final ObjectMapper mapper = new ObjectMapper();
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(3))
+            .build();
+    private static final Duration TIEMPO_MAXIMO_RESPUESTA = Duration.ofSeconds(5);
 
     public IaService(ReporteService reporteService) {
         this.reporteService = reporteService;
@@ -114,13 +119,24 @@ public class IaService {
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
+                .timeout(TIEMPO_MAXIMO_RESPUESTA)
                 .build();
 
-        HttpResponse<String> resp = HttpClient.newHttpClient()
-                .send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+            throw new IllegalStateException("El proveedor de IA respondio HTTP " + resp.statusCode());
+        }
 
         JsonNode root = mapper.readTree(resp.body());
-        return root.path("choices").get(0).path("message").path("content").asText();
+        JsonNode choices = root.path("choices");
+        if (!choices.isArray() || choices.isEmpty()) {
+            throw new IllegalStateException("La respuesta de IA no contiene resultados.");
+        }
+        String contenido = choices.path(0).path("message").path("content").asText();
+        if (contenido == null || contenido.isBlank()) {
+            throw new IllegalStateException("La respuesta de IA llego vacia.");
+        }
+        return contenido;
     }
 
     // ── Análisis local automático (heurístico) ───────────────────────────────

@@ -19,6 +19,7 @@ import com.ferreteria.v1.repositories.DetalleVentaRepository;
 import com.ferreteria.v1.repositories.InventarioRepository;
 import com.ferreteria.v1.repositories.ProductoRepository;
 import com.ferreteria.v1.repositories.VentaRepository;
+import com.ferreteria.v1.repositories.ContadorComprobanteRepository;
 
 @Service
 public class VentaService {
@@ -37,6 +38,9 @@ public class VentaService {
 
     @Autowired
     private CajaRepository cajaRepository;
+
+    @Autowired
+    private ContadorComprobanteRepository contadorComprobanteRepository;
 
     public List<Venta> listarTodas() {
         return ventaRepository.findAll();
@@ -61,6 +65,9 @@ public class VentaService {
         for (DetalleVenta detalle : detalleVentaRepository.findByVentaId(id)) {
             Producto producto = detalle.getProducto();
             if (producto == null) continue;
+            Integer productoId = producto.getId();
+            producto = productoRepository.buscarPorIdParaActualizar(productoId)
+                    .orElseThrow(() -> new RuntimeException("Producto no encontrado id=" + productoId));
             int stockAntes   = producto.getStock();
             int stockDespues = stockAntes + detalle.getCantidad();
             producto.setStock(stockDespues);
@@ -86,9 +93,13 @@ public Venta registrarVenta(Venta venta, List<DetalleVenta> detalles, Usuario us
 
     // Autogenera el número: serie F001 para Factura, B001 para Boleta
     if (venta.getNumeroComprobante() == null || venta.getNumeroComprobante().isBlank()) {
-        long count = ventaRepository.count();
         String serie = venta.getTipoComprobante() == Venta.TipoComprobante.Factura ? "F001" : "B001";
-        venta.setNumeroComprobante(serie + String.format("-%05d", count + 1));
+        contadorComprobanteRepository.reservarSiguiente(serie);
+        Long numero = contadorComprobanteRepository.obtenerNumeroReservado();
+        if (numero == null || numero <= 0) {
+            throw new IllegalStateException("No se pudo reservar el numero del comprobante.");
+        }
+        venta.setNumeroComprobante(serie + String.format("-%05d", numero));
     }
 
     Venta ventaGuardada = ventaRepository.save(venta);
@@ -97,11 +108,15 @@ public Venta registrarVenta(Venta venta, List<DetalleVenta> detalles, Usuario us
     for (DetalleVenta detalle : detalles) {
         detalle.setVenta(ventaGuardada);
 
-        Producto producto = productoRepository.findById(
+        Producto producto = productoRepository.buscarPorIdParaActualizar(
             detalle.getProducto().getId()
         ).orElseThrow(() -> new RuntimeException(
             "Producto no encontrado id=" + detalle.getProducto().getId()
         ));
+
+        if (detalle.getCantidad() == null || detalle.getCantidad() <= 0) {
+            throw new IllegalArgumentException("La cantidad vendida debe ser mayor que cero.");
+        }
 
         if (producto.getStock() < detalle.getCantidad()) {
             throw new RuntimeException(

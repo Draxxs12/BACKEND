@@ -47,7 +47,7 @@ class CompraServiceTest {
         Producto p = new Producto();
         p.setId(id);
         p.setStock(stock);
-        when(productoRepository.findById(id)).thenReturn(Optional.of(p));
+        when(productoRepository.buscarPorIdParaActualizar(id)).thenReturn(Optional.of(p));
         return p;
     }
 
@@ -105,7 +105,7 @@ class CompraServiceTest {
         Compra anterior = new Compra();
         anterior.setId(1);
         anterior.setEstado(Compra.Estado.Pendiente);
-        when(compraRepository.findById(1)).thenReturn(Optional.of(anterior));
+        when(compraRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(anterior));
 
         Compra c = compra(Compra.Estado.Recibida, p, 5, "20.00");
         c.setId(1);
@@ -120,7 +120,7 @@ class CompraServiceTest {
         Compra anterior = new Compra();
         anterior.setId(1);
         anterior.setEstado(Compra.Estado.Recibida);
-        when(compraRepository.findById(1)).thenReturn(Optional.of(anterior));
+        when(compraRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(anterior));
 
         Compra c = compra(Compra.Estado.Recibida, p, 5, "20.00");
         c.setId(1);

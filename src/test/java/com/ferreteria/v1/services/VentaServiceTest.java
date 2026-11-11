@@ -31,6 +31,7 @@ import com.ferreteria.v1.repositories.DetalleVentaRepository;
 import com.ferreteria.v1.repositories.InventarioRepository;
 import com.ferreteria.v1.repositories.ProductoRepository;
 import com.ferreteria.v1.repositories.VentaRepository;
+import com.ferreteria.v1.repositories.ContadorComprobanteRepository;
 
 /** H0029 a H0035 (venta y comprobante) y anulación; integración Ventas-Inventario (CP-021 a CP-034, CP-095). */
 @ExtendWith(MockitoExtension.class)
@@ -42,6 +43,7 @@ class VentaServiceTest {
     @Mock ProductoRepository productoRepository;
     @Mock InventarioRepository inventarioRepository;
     @Mock CajaRepository cajaRepository;
+    @Mock ContadorComprobanteRepository contadorComprobanteRepository;
     @InjectMocks VentaService service;
 
     @BeforeEach
@@ -49,6 +51,7 @@ class VentaServiceTest {
         when(ventaRepository.save(any(Venta.class))).thenAnswer(i -> i.getArgument(0));
         when(detalleVentaRepository.save(any(DetalleVenta.class))).thenAnswer(i -> i.getArgument(0));
         when(ventaRepository.count()).thenReturn(0L);
+        when(contadorComprobanteRepository.obtenerNumeroReservado()).thenReturn(1L);
     }
 
     private Producto producto(int id, int stock) {
@@ -56,7 +59,7 @@ class VentaServiceTest {
         p.setId(id);
         p.setNombre("Producto " + id);
         p.setStock(stock);
-        when(productoRepository.findById(id)).thenReturn(Optional.of(p));
+        when(productoRepository.buscarPorIdParaActualizar(id)).thenReturn(Optional.of(p));
         return p;
     }
 
@@ -147,7 +150,7 @@ class VentaServiceTest {
     void registrarVenta_productoInexistenteLanzaExcepcion() {
         Producto fantasma = new Producto();
         fantasma.setId(999);
-        when(productoRepository.findById(999)).thenReturn(Optional.empty());
+        when(productoRepository.buscarPorIdParaActualizar(999)).thenReturn(Optional.empty());
 
         assertThrows(RuntimeException.class, () -> service.registrarVenta(
                 venta(Venta.TipoComprobante.Boleta),
