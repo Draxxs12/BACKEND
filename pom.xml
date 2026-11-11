@@ -50,6 +50,33 @@
 				</execution>
 			</executions>
 		</plugin>
+		<plugin>
+			<groupId>org.jacoco</groupId>
+			<artifactId>jacoco-maven-plugin</artifactId>
+			<version>0.8.12</version>
+			<executions>
+				<execution><goals><goal>prepare-agent</goal></goals></execution>
+				<execution><id>reporte</id><phase>verify</phase><goals><goal>report</goal></goals></execution>
+			</executions>
+		</plugin>
+		<plugin>
+			<groupId>com.github.spotbugs</groupId>
+			<artifactId>spotbugs-maven-plugin</artifactId>
+			<version>4.8.6.0</version>
+			<configuration>
+				<effort>Max</effort>
+				<threshold>High</threshold>
+				<plugins>
+					<plugin><groupId>com.h3xstream.findsecbugs</groupId><artifactId>findsecbugs-plugin</artifactId><version>1.13.0</version></plugin>
+				</plugins>
+			</configuration>
+		</plugin>
+		<plugin>
+			<groupId>org.owasp</groupId>
+			<artifactId>dependency-check-maven</artifactId>
+			<version>10.0.4</version>
+			<configuration><failBuildOnCVSS>9</failBuildOnCVSS></configuration>
+		</plugin>
 		<plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
 	</plugins></build>
 </project>
