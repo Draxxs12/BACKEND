@@ -1,0 +1,700 @@
+From 71a6ad38d00e9b9f5f8a3bf06dd5c5bc704e8782 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 4 <pruebas@local>
+Date: Wed, 11 Nov 2026 20:58:10 +0000
+Subject: [PATCH 1/3] build(calidad): agregar JaCoCo, SpotBugs con FindSecBugs
+ y OWASP Dependency-Check
+
+EN-S4-05 y EN-S4-07. JaCoCo genera la cobertura en la fase verify;
+SpotBugs y Dependency-Check se ejecutan bajo demanda (spotbugs:check y
+org.owasp:dependency-check-maven:check).
+---
+ pom.xml | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/pom.xml b/pom.xml
+index 0040efe..5dd78ed 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -50,6 +50,33 @@
+ 				</execution>
+ 			</executions>
+ 		</plugin>
++		<plugin>
++			<groupId>org.jacoco</groupId>
++			<artifactId>jacoco-maven-plugin</artifactId>
++			<version>0.8.12</version>
++			<executions>
++				<execution><goals><goal>prepare-agent</goal></goals></execution>
++				<execution><id>reporte</id><phase>verify</phase><goals><goal>report</goal></goals></execution>
++			</executions>
++		</plugin>
++		<plugin>
++			<groupId>com.github.spotbugs</groupId>
++			<artifactId>spotbugs-maven-plugin</artifactId>
++			<version>4.8.6.0</version>
++			<configuration>
++				<effort>Max</effort>
++				<threshold>High</threshold>
++				<plugins>
++					<plugin><groupId>com.h3xstream.findsecbugs</groupId><artifactId>findsecbugs-plugin</artifactId><version>1.13.0</version></plugin>
++				</plugins>
++			</configuration>
++		</plugin>
++		<plugin>
++			<groupId>org.owasp</groupId>
++			<artifactId>dependency-check-maven</artifactId>
++			<version>10.0.4</version>
++			<configuration><failBuildOnCVSS>9</failBuildOnCVSS></configuration>
++		</plugin>
+ 		<plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
+ 	</plugins></build>
+ </project>
+\ No newline at end of file
+-- 
+2.43.0
+
+
+From 20579216ce49fdf3e566bca19491c5c027cf0f98 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 4 <pruebas@local>
+Date: Wed, 11 Nov 2026 21:05:43 +0000
+Subject: [PATCH 2/3] test(rendimiento): escenarios k6 y mapeos WireMock del
+ Sprint 4 (HU-S4-01 a HU-S4-08)
+
+- humo, login, pico de ventas, stock concurrente, dashboard, busqueda, estres y resistencia.
+- generar_token.py: JWT de administrador sin pasar por el codigo MFA del correo.
+- humo.js envia el token tambien a /actuator/health (SecurityConfig exige autenticacion).
+- Mapeos WireMock para Groq y Gmail lentos o con error 500.
+- k6/README.md con los pasos de ejecucion y la verificacion SQL de HU-S4-03.
+---
+ k6/README.md                             | 61 ++++++++++++++++++++++++
+ k6/busqueda_productos.js                 | 22 +++++++++
+ k6/comun.js                              | 34 +++++++++++++
+ k6/dashboard_volumen.js                  | 25 ++++++++++
+ k6/estres.js                             | 18 +++++++
+ k6/generar_token.py                      | 49 +++++++++++++++++++
+ k6/humo.js                               | 23 +++++++++
+ k6/login_carga.js                        | 28 +++++++++++
+ k6/resistencia.js                        | 21 ++++++++
+ k6/stock_concurrente.js                  | 27 +++++++++++
+ k6/venta_pico.js                         | 24 ++++++++++
+ wiremock/mappings/gmail-envio-lento.json |  2 +
+ wiremock/mappings/groq-error-500.json    |  2 +
+ wiremock/mappings/groq-lento-30s.json    |  2 +
+ 14 files changed, 338 insertions(+)
+ create mode 100644 k6/README.md
+ create mode 100644 k6/busqueda_productos.js
+ create mode 100644 k6/comun.js
+ create mode 100644 k6/dashboard_volumen.js
+ create mode 100644 k6/estres.js
+ create mode 100644 k6/generar_token.py
+ create mode 100644 k6/humo.js
+ create mode 100644 k6/login_carga.js
+ create mode 100644 k6/resistencia.js
+ create mode 100644 k6/stock_concurrente.js
+ create mode 100644 k6/venta_pico.js
+ create mode 100644 wiremock/mappings/gmail-envio-lento.json
+ create mode 100644 wiremock/mappings/groq-error-500.json
+ create mode 100644 wiremock/mappings/groq-lento-30s.json
+
+diff --git a/k6/README.md b/k6/README.md
+new file mode 100644
+index 0000000..459ca77
+--- /dev/null
++++ b/k6/README.md
+@@ -0,0 +1,61 @@
++# Pruebas de rendimiento (Sprint 4)
++
++Escenarios k6, mapeos WireMock y flujos de GitHub Actions del Sprint 4. Los umbrales son **propuestas**: el Product Owner debe aprobarlos antes de ejecutar. Nada de esto se ejecutó todavía contra el sistema real.
++
++| Archivo | Para qué sirve | Historia |
++|---|---|---|
++| `humo.js` | Humo (3 usuarios, 30 s) en cada Pull Request | todas |
++| `login_carga.js` | 30 inicios de sesión en 1 minuto | HU-S4-01 |
++| `venta_pico.js` | Rampa de 5 a 100 usuarios en 10 s sobre `POST /api/ventas` | HU-S4-02 |
++| `stock_concurrente.js` | 100 ventas simultáneas contra stock 50 | HU-S4-03 |
++| `dashboard_volumen.js` | Lecturas que usa el dashboard con 50 000 ventas | HU-S4-04 |
++| `busqueda_productos.js` | Búsqueda por nombre con 50 usuarios | HU-S4-05 |
++| `estres.js` | Escalones de carga hasta el punto de quiebre | HU-S4-06, 08 |
++| `resistencia.js` | Carga constante de 8 h al 40 % de la capacidad | HU-S4-07 |
++| `generar_token.py` | Genera un JWT de administrador sin pasar por el correo MFA | todas |
++| `../wiremock/mappings/` | Groq y Gmail lentos (30 s) o con error 500 | HU-S4-08 |
++
++## Token (la seguridad por roles lo exige)
++`SecurityConfig` restringe las rutas por rol y exige autenticación hasta en `/actuator/**`. Los escenarios mezclan ventas, productos, compras y reportes, así que el token debe ser de un usuario **Administrador activo**.
++
++El login real pide un código enviado por correo. Para las pruebas se genera el token con la misma clave del backend:
++
++```powershell
++$env:JWT_SECRET = "<la misma clave Base64 de jwt.secret del backend>"
++$env:EMAIL      = "<correo de un Administrador activo de la base de pruebas>"
++$env:TOKEN      = python k6\generar_token.py
++```
++
++El token dura 4 h (el backend usa 8 h). Para la resistencia de 8 h, genera uno con `$env:HORAS = 9` o renuévalo.
++
++## Ejecutar un escenario (PowerShell, Java 17)
++1. Levanta MySQL y el backend con Java 17 (`$env:JAVA_HOME` apuntando al JDK 17). `DataInitializer` crea datos de ejemplo al arrancar; para volumen usa `fase2Ferreteria.sql` u otro generador de datos de prueba.
++2. Genera el token (arriba) e instala k6: `winget install k6`.
++3. Ejecuta, por ejemplo:
++   `k6 run -e BASE_URL=http://localhost:8080 -e PRODUCTO_ID=1 -e CLIENTE_ID=1 -e USUARIO_ID=1 k6\venta_pico.js`
++4. Si un umbral falla, k6 termina con código distinto de 0: así el pipeline marca el job como fallido.
++
++`venta_pico.js`, `estres.js` y `resistencia.js` venden el mismo producto muchas veces: antes de correrlos sube su stock (`UPDATE productos SET stock = 1000000 WHERE id = 1;`) o se agotará y los rechazos contarán como errores.
++
++## Verificación SQL de HU-S4-03 (después de `stock_concurrente.js`)
++Antes de ejecutar deja el producto con stock **exactamente 50** (`UPDATE productos SET stock = 50 WHERE id = 1;`). Después:
++
++```sql
++SELECT stock FROM productos WHERE id = 1;                                      -- debe ser 0
++SELECT COUNT(*) FROM detalle_venta WHERE producto_id = 1;                      -- debe ser 50
++SELECT COUNT(*) FROM inventario WHERE producto_id = 1 AND tipo = 'Salida';     -- debe ser 50
++```
++
++`VentaController` convierte **cualquier** `RuntimeException` en HTTP 400. Por eso el script cuenta como "rechazo" tanto el stock insuficiente como un posible choque de número de comprobante (`numero_comprobante` es único) o un tiempo de espera del bloqueo. Si `ventas_confirmadas` no llega a 50 aunque el stock alcanzaba, el árbitro es el SQL de arriba y el registro del backend.
++
++## Lo que falta decidir o construir
++- **Correo simulado (HU-S4-01 y 08):** el login envía el correo de forma síncrona y `EmailService` no permite cambiar la URL de Gmail. Para `login_carga.js` hace falta un `EmailService` falso en un perfil de pruebas; el mapeo `gmail-envio-lento.json` queda listo para cuando exista.
++- **Groq:** `ia.api.url` sí es configurable: apúntalo a WireMock (`http://localhost:8089/openai/v1/chat/completions`).
++- **Resistencia de 8 h:** los ejecutores gratuitos de GitHub limitan cada job a 6 h; ejecútala en una máquina dedicada.
++- **SonarCloud:** reemplaza `TU_ORGANIZACION` y `TU_PROYECTO_BACKEND` en `sonar-project.properties` y agrega el paso de análisis cuando tengas el `SONAR_TOKEN`.
++
++## Secretos que necesita el flujo `rendimiento.yml`
++| Secreto | Valor |
++|---|---|
++| `JWT_SECRET_PRUEBAS` | Clave Base64 de al menos 32 bytes, solo para CI (`openssl rand -base64 48`) |
++| `EMAIL_ADMIN_PRUEBAS` | Correo de un Administrador que `DataInitializer` crea al arrancar |
+diff --git a/k6/busqueda_productos.js b/k6/busqueda_productos.js
+new file mode 100644
+index 0000000..2bd3371
+--- /dev/null
++++ b/k6/busqueda_productos.js
+@@ -0,0 +1,22 @@
++// HU-S4-05 · Carga y volumen: búsqueda por nombre con 50 usuarios simultáneos y 20 000 productos.
++import http from 'k6/http';
++import { check, sleep } from 'k6';
++import { BASE_URL, cabeceras } from './comun.js';
++
++export const options = {
++  vus: 50,
++  duration: '2m',
++  thresholds: {
++    'http_req_duration{endpoint:buscar}': ['p(95)<500'],   // criterio 1
++    http_req_failed: ['rate<0.01'],                        // criterio 2
++  },
++};
++
++const TEXTOS = ['mar', 'tal', 'cem', 'cla', 'pin', 'tub'];
++
++export default function () {
++  const texto = TEXTOS[Math.floor(Math.random() * TEXTOS.length)];
++  const r = http.get(`${BASE_URL}/api/productos/buscar?nombre=${texto}`, { ...cabeceras(), tags: { endpoint: 'buscar' } });
++  check(r, { 'buscar 200': (x) => x.status === 200 });
++  sleep(0.5);
++}
+diff --git a/k6/comun.js b/k6/comun.js
+new file mode 100644
+index 0000000..b5680c0
+--- /dev/null
++++ b/k6/comun.js
+@@ -0,0 +1,34 @@
++// Utilidades compartidas por los escenarios k6.
++// Variables de entorno: BASE_URL (por defecto http://localhost:8080) y TOKEN (JWT obtenido con login + verify-mfa).
++// IMPORTANTE: SecurityConfig restringe cada ruta por rol (ventas: ADMINISTRADOR/RECEPCIONISTA; productos y compras:
++// ADMINISTRADOR/ALMACENERO; reportes: ADMINISTRADOR). Como los escenarios mezclan estas rutas, el TOKEN debe ser de un
++// usuario con rol ADMINISTRADOR. Con k6/generar_token.py se genera uno sin pasar por el correo MFA.
++export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
++
++export function cabeceras() {
++  return {
++    headers: {
++      'Content-Type': 'application/json',
++      Authorization: `Bearer ${__ENV.TOKEN}`,
++    },
++  };
++}
++
++// Cuerpo de una venta de 1 unidad (formato de VentaRequest del backend).
++export function ventaDeUnaUnidad() {
++  return JSON.stringify({
++    usuarioId: Number(__ENV.USUARIO_ID || 1),
++    venta: {
++      tipoPago: 'Efectivo',
++      tipoComprobante: 'Boleta',
++      cliente: { id: Number(__ENV.CLIENTE_ID || 1) },
++    },
++    detalles: [
++      {
++        producto: { id: Number(__ENV.PRODUCTO_ID || 1) },
++        cantidad: 1,
++        precioUnitario: Number(__ENV.PRECIO || 15),
++      },
++    ],
++  });
++}
+diff --git a/k6/dashboard_volumen.js b/k6/dashboard_volumen.js
+new file mode 100644
+index 0000000..876afb3
+--- /dev/null
++++ b/k6/dashboard_volumen.js
+@@ -0,0 +1,25 @@
++// HU-S4-04 · Carga y volumen: el dashboard del frontend obtiene sus datos con estas lecturas.
++// Ejecutar con la base de prueba de 50 000 ventas y 5 000 productos; 10 usuarios simultáneos.
++import http from 'k6/http';
++import { check, sleep } from 'k6';
++import { BASE_URL, cabeceras } from './comun.js';
++
++export const options = {
++  vus: 10,
++  duration: '2m',
++  thresholds: {
++    'http_req_duration{endpoint:ventas}': ['p(95)<1500'],
++    'http_req_duration{endpoint:productos}': ['p(95)<1500'],
++    http_req_failed: ['rate<0.01'],
++  },
++};
++
++export default function () {
++  const g = http.batch([
++    ['GET', `${BASE_URL}/api/ventas`, null, { ...cabeceras(), tags: { endpoint: 'ventas' } }],
++    ['GET', `${BASE_URL}/api/productos`, null, { ...cabeceras(), tags: { endpoint: 'productos' } }],
++    ['GET', `${BASE_URL}/api/compras`, null, { ...cabeceras(), tags: { endpoint: 'compras' } }],
++  ]);
++  g.forEach((r) => check(r, { '200': (x) => x.status === 200 }));
++  sleep(2);
++}
+diff --git a/k6/estres.js b/k6/estres.js
+new file mode 100644
+index 0000000..52eccb0
+--- /dev/null
++++ b/k6/estres.js
+@@ -0,0 +1,18 @@
++// Estrés: sube la carga por escalones hasta encontrar el punto de quiebre y comprueba la recuperación.
++import http from 'k6/http';
++import { check } from 'k6';
++import { BASE_URL, cabeceras, ventaDeUnaUnidad } from './comun.js';
++
++export const options = {
++  stages: [
++    { duration: '2m', target: 25 }, { duration: '2m', target: 50 },
++    { duration: '2m', target: 100 }, { duration: '2m', target: 150 },
++    { duration: '2m', target: 200 }, { duration: '3m', target: 5 },   // recuperación
++  ],
++  thresholds: { http_req_failed: [{ threshold: 'rate<0.10', abortOnFail: false }] },
++};
++
++export default function () {
++  const r = http.post(`${BASE_URL}/api/ventas`, ventaDeUnaUnidad(), cabeceras());
++  check(r, { 'sin 5xx': (x) => x.status < 500 });
++}
+diff --git a/k6/generar_token.py b/k6/generar_token.py
+new file mode 100644
+index 0000000..e60d815
+--- /dev/null
++++ b/k6/generar_token.py
+@@ -0,0 +1,49 @@
++#!/usr/bin/env python3
++"""Genera un JWT HS256 igual al que emite JwtUtil.generarToken (sub, rol, usuarioId, iat, exp).
++
++Sirve para las pruebas de rendimiento, donde el login real exige un código MFA enviado por correo.
++Solo usa la biblioteca estándar. Variables de entorno:
++  JWT_SECRET  clave en Base64, la MISMA que usa el backend (propiedad jwt.secret)
++  EMAIL       correo de un usuario ACTIVO con rol Administrador que exista en la base de pruebas
++  USUARIO_ID  (opcional) id de ese usuario, por defecto 1
++  HORAS       (opcional) validez en horas, por defecto 4 (el backend usa 8)
++Uso (PowerShell):  $env:TOKEN = python k6\\generar_token.py
++NO usar contra producción ni guardar el resultado en el repositorio.
++"""
++import base64
++import hashlib
++import hmac
++import json
++import os
++import sys
++import time
++
++
++def b64url(datos: bytes) -> str:
++    return base64.urlsafe_b64encode(datos).rstrip(b"=").decode()
++
++
++def main() -> None:
++    try:
++        clave = base64.b64decode(os.environ["JWT_SECRET"])
++        email = os.environ["EMAIL"]
++    except KeyError as faltante:
++        sys.exit(f"Falta la variable de entorno {faltante}")
++    if len(clave) < 32:
++        sys.exit("JWT_SECRET debe tener al menos 32 bytes (256 bits) una vez decodificada de Base64")
++
++    ahora = int(time.time())
++    cabecera = b64url(json.dumps({"alg": "HS256", "typ": "JWT"}, separators=(",", ":")).encode())
++    cuerpo = b64url(json.dumps({
++        "sub": email,
++        "rol": "Administrador",
++        "usuarioId": int(os.environ.get("USUARIO_ID", "1")),
++        "iat": ahora,
++        "exp": ahora + int(float(os.environ.get("HORAS", "4")) * 3600),
++    }, separators=(",", ":")).encode())
++    firma = b64url(hmac.new(clave, f"{cabecera}.{cuerpo}".encode(), hashlib.sha256).digest())
++    print(f"{cabecera}.{cuerpo}.{firma}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/k6/humo.js b/k6/humo.js
+new file mode 100644
+index 0000000..f0e8190
+--- /dev/null
++++ b/k6/humo.js
+@@ -0,0 +1,23 @@
++// Prueba de humo para cada Pull Request: 3 usuarios virtuales durante 30 s.
++import http from 'k6/http';
++import { check, sleep } from 'k6';
++import { BASE_URL, cabeceras } from './comun.js';
++
++export const options = {
++  vus: 3,
++  duration: '30s',
++  thresholds: {
++    http_req_failed: ['rate<0.01'],
++    http_req_duration: ['p(95)<1500'],
++  },
++};
++
++export default function () {
++  // SecurityConfig exige autenticación también para /actuator/**, por eso se envía el token.
++  const salud = http.get(`${BASE_URL}/actuator/health`, cabeceras());
++  check(salud, { 'health 200': (r) => r.status === 200 });
++
++  const productos = http.get(`${BASE_URL}/api/productos`, cabeceras());
++  check(productos, { 'productos 200': (r) => r.status === 200 });
++  sleep(1);
++}
+diff --git a/k6/login_carga.js b/k6/login_carga.js
+new file mode 100644
+index 0000000..ad384d9
+--- /dev/null
++++ b/k6/login_carga.js
+@@ -0,0 +1,28 @@
++// HU-S4-01 · Carga: 30 inicios de sesión en 1 minuto.
++// Requiere un perfil de pruebas donde el correo esté simulado (EmailService falso), para no medir ni saturar Gmail.
++import http from 'k6/http';
++import { check } from 'k6';
++import { BASE_URL } from './comun.js';
++
++export const options = {
++  scenarios: {
++    apertura_de_tienda: {
++      executor: 'constant-arrival-rate',
++      rate: 30, timeUnit: '1m', duration: '1m',
++      preAllocatedVUs: 10, maxVUs: 30,
++    },
++  },
++  thresholds: {
++    'http_req_duration{endpoint:login}': ['p(95)<1000'],   // criterio 1
++    http_req_failed: ['rate<0.01'],                        // criterio 2
++  },
++};
++
++export default function () {
++  const r = http.post(
++    `${BASE_URL}/api/auth/login`,
++    JSON.stringify({ email: __ENV.EMAIL, password: __ENV.PASSWORD }),
++    { headers: { 'Content-Type': 'application/json' }, tags: { endpoint: 'login' } },
++  );
++  check(r, { 'login 200 con challengeToken': (x) => x.status === 200 && x.json('challengeToken') !== undefined });
++}
+diff --git a/k6/resistencia.js b/k6/resistencia.js
+new file mode 100644
+index 0000000..757e5b0
+--- /dev/null
++++ b/k6/resistencia.js
+@@ -0,0 +1,21 @@
++// HU-S4-07 · Resistencia (soak): carga constante equivalente al 40 % de la capacidad máxima durante 8 h.
++// VUS se calcula DESPUÉS de medir la capacidad máxima con la prueba de estrés.
++import http from 'k6/http';
++import { check, sleep } from 'k6';
++import { BASE_URL, cabeceras, ventaDeUnaUnidad } from './comun.js';
++
++export const options = {
++  vus: Number(__ENV.VUS || 20),
++  duration: __ENV.DURACION || '8h',
++  thresholds: {
++    http_req_failed: ['rate<0.005'],                          // errores ≤ 0,5 %
++    http_req_duration: ['p(95)<' + (__ENV.P95_MS || 2000)],
++  },
++};
++
++export default function () {
++  const r = http.post(`${BASE_URL}/api/ventas`, ventaDeUnaUnidad(), cabeceras());
++  check(r, { 'venta 200': (x) => x.status === 200 });
++  http.get(`${BASE_URL}/api/productos`, cabeceras());
++  sleep(1);
++}
+diff --git a/k6/stock_concurrente.js b/k6/stock_concurrente.js
+new file mode 100644
+index 0000000..1eb2188
+--- /dev/null
++++ b/k6/stock_concurrente.js
+@@ -0,0 +1,27 @@
++// HU-S4-03 · Concurrencia: 100 solicitudes simultáneas de 1 unidad contra un producto con stock 50.
++// Antes de ejecutar: dejar PRODUCTO_ID con stock exactamente 50. Después: verificar con SQL (ver README).
++import http from 'k6/http';
++import { Counter } from 'k6/metrics';
++import { BASE_URL, cabeceras, ventaDeUnaUnidad } from './comun.js';
++
++const ventasOk = new Counter('ventas_confirmadas');
++const rechazos = new Counter('ventas_rechazadas_4xx');
++const errores5xx = new Counter('errores_5xx');
++
++export const options = {
++  scenarios: {
++    simultaneas: { executor: 'shared-iterations', vus: 100, iterations: 100, maxDuration: '1m' },
++  },
++  thresholds: {
++    ventas_confirmadas: ['count==50'],
++    ventas_rechazadas_4xx: ['count==50'],
++    errores_5xx: ['count==0'],
++  },
++};
++
++export default function () {
++  const r = http.post(`${BASE_URL}/api/ventas`, ventaDeUnaUnidad(), cabeceras());
++  if (r.status === 200) ventasOk.add(1);
++  else if (r.status >= 400 && r.status < 500) rechazos.add(1);
++  else errores5xx.add(1);
++}
+diff --git a/k6/venta_pico.js b/k6/venta_pico.js
+new file mode 100644
+index 0000000..968f2ac
+--- /dev/null
++++ b/k6/venta_pico.js
+@@ -0,0 +1,24 @@
++// HU-S4-02 · Pico: rampa de 5 a 100 usuarios virtuales en 10 s, se mantiene 2 min y vuelve a 5.
++// Usar un producto con stock alto y datos de prueba aislados.
++import http from 'k6/http';
++import { check } from 'k6';
++import { BASE_URL, cabeceras, ventaDeUnaUnidad } from './comun.js';
++
++export const options = {
++  stages: [
++    { duration: '30s', target: 5 },     // línea base
++    { duration: '10s', target: 100 },   // pico
++    { duration: '2m',  target: 100 },
++    { duration: '10s', target: 5 },     // regreso
++    { duration: '60s', target: 5 },     // ventana de recuperación (≤ 60 s)
++  ],
++  thresholds: {
++    'http_req_duration{endpoint:venta}': ['p(95)<2000'],   // criterio 1
++    http_req_failed: ['rate<0.02'],
++  },
++};
++
++export default function () {
++  const r = http.post(`${BASE_URL}/api/ventas`, ventaDeUnaUnidad(), { ...cabeceras(), tags: { endpoint: 'venta' } });
++  check(r, { 'venta 200': (x) => x.status === 200 });
++}
+diff --git a/wiremock/mappings/gmail-envio-lento.json b/wiremock/mappings/gmail-envio-lento.json
+new file mode 100644
+index 0000000..7483daa
+--- /dev/null
++++ b/wiremock/mappings/gmail-envio-lento.json
+@@ -0,0 +1,2 @@
++{ "request": { "method": "POST", "urlPathPattern": "/gmail/v1/users/.*/messages/send" },
++  "response": { "status": 200, "fixedDelayMilliseconds": 30000, "jsonBody": { "id": "simulado" } } }
+diff --git a/wiremock/mappings/groq-error-500.json b/wiremock/mappings/groq-error-500.json
+new file mode 100644
+index 0000000..6cc66ea
+--- /dev/null
++++ b/wiremock/mappings/groq-error-500.json
+@@ -0,0 +1,2 @@
++{ "request": { "method": "POST", "urlPath": "/openai/v1/chat/completions" },
++  "response": { "status": 500, "body": "error simulado" } }
+diff --git a/wiremock/mappings/groq-lento-30s.json b/wiremock/mappings/groq-lento-30s.json
+new file mode 100644
+index 0000000..64fb5df
+--- /dev/null
++++ b/wiremock/mappings/groq-lento-30s.json
+@@ -0,0 +1,2 @@
++{ "request": { "method": "POST", "urlPath": "/openai/v1/chat/completions" },
++  "response": { "status": 200, "fixedDelayMilliseconds": 30000, "jsonBody": { "choices": [ { "message": { "content": "respuesta simulada" } } ] } } }
+-- 
+2.43.0
+
+
+From ca82bd1457085172fca24c878af82bfbc9370f17 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 4 <pruebas@local>
+Date: Wed, 11 Nov 2026 21:06:10 +0000
+Subject: [PATCH 3/3] ci: flujos de calidad y rendimiento del Sprint 4 y
+ configuracion de SonarCloud
+
+- calidad.yml: pruebas con MySQL de servicio, cobertura JaCoCo, SpotBugs y Gitleaks.
+- rendimiento.yml: humo por PR, carga nocturna y estres/pico bajo demanda.
+  Genera el token con k6/generar_token.py (JWT_SECRET_PRUEBAS, EMAIL_ADMIN_PRUEBAS),
+  espera /actuator/health/readiness y sube el stock del producto de prueba.
+- chmod +x mvnw porque el wrapper esta versionado con modo 100644.
+---
+ .github/workflows/calidad.yml     | 46 +++++++++++++++++
+ .github/workflows/rendimiento.yml | 82 +++++++++++++++++++++++++++++++
+ sonar-project.properties          |  7 +++
+ 3 files changed, 135 insertions(+)
+ create mode 100644 .github/workflows/calidad.yml
+ create mode 100644 .github/workflows/rendimiento.yml
+ create mode 100644 sonar-project.properties
+
+diff --git a/.github/workflows/calidad.yml b/.github/workflows/calidad.yml
+new file mode 100644
+index 0000000..63a0405
+--- /dev/null
++++ b/.github/workflows/calidad.yml
+@@ -0,0 +1,46 @@
++name: Calidad backend
++
++on:
++  pull_request:
++  push:
++    branches: [main]
++
++jobs:
++  pruebas:
++    runs-on: ubuntu-latest
++    # V1ApplicationTests y SecurityConfigAuthorizationTest levantan el contexto de Spring (necesita MySQL).
++    services:
++      mysql:
++        image: mysql:8.0
++        env: { MYSQL_ROOT_PASSWORD: pruebas, MYSQL_DATABASE: tienda_db }
++        ports: ['3306:3306']
++        options: >-
++          --health-cmd="mysqladmin ping -h 127.0.0.1" --health-interval=10s --health-timeout=5s --health-retries=10
++    env:
++      DB_URL: jdbc:mysql://127.0.0.1:3306/tienda_db?useSSL=false&allowPublicKeyRetrieval=true
++      DB_USER: root
++      DB_PASS: pruebas
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-java@v4
++        with: { distribution: temurin, java-version: '17', cache: maven }
++      - name: Permiso de ejecución del wrapper (mvnw está versionado sin ese permiso)
++        run: chmod +x mvnw
++      - name: Pruebas y cobertura (JaCoCo)
++        run: ./mvnw -B verify
++      - name: Análisis estático (SpotBugs + FindSecBugs)
++        run: ./mvnw -B spotbugs:check
++      - uses: actions/upload-artifact@v4
++        if: always()
++        with:
++          name: cobertura-jacoco
++          path: target/site/jacoco/**
++
++  secretos:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++        with: { fetch-depth: 0 }
++      - uses: gitleaks/gitleaks-action@v2
++        env:
++          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+diff --git a/.github/workflows/rendimiento.yml b/.github/workflows/rendimiento.yml
+new file mode 100644
+index 0000000..022f6fc
+--- /dev/null
++++ b/.github/workflows/rendimiento.yml
+@@ -0,0 +1,82 @@
++name: Rendimiento
++
++on:
++  pull_request:                 # humo en cada PR
++  schedule:
++    - cron: '0 6 * * *'         # carga nocturna (01:00 hora de Lima)
++  workflow_dispatch:            # estrés y picos, solo bajo demanda
++    inputs:
++      escenario:
++        description: 'Escenario a ejecutar'
++        required: true
++        default: carga
++        type: choice
++        options: [humo, carga, pico, estres]
++
++jobs:
++  rendimiento:
++    runs-on: ubuntu-latest
++    timeout-minutes: 60         # la resistencia de 8 h NO va aquí: se ejecuta en una máquina dedicada
++    services:
++      mysql:
++        image: mysql:8.0
++        env: { MYSQL_ROOT_PASSWORD: pruebas, MYSQL_DATABASE: tienda_db }
++        ports: ['3306:3306']
++        options: >-
++          --health-cmd="mysqladmin ping -h 127.0.0.1" --health-interval=10s --health-timeout=5s --health-retries=10
++    env:
++      DB_URL: jdbc:mysql://127.0.0.1:3306/tienda_db?useSSL=false&allowPublicKeyRetrieval=true
++      DB_USER: root
++      DB_PASS: pruebas
++      # Secretos de CI (ver k6/README.md). La clave es solo para pruebas, nunca la de producción.
++      JWT_SECRET: ${{ secrets.JWT_SECRET_PRUEBAS }}
++      EMAIL: ${{ secrets.EMAIL_ADMIN_PRUEBAS }}
++      # Habilita /actuator/health/readiness, que pasa a 200 cuando DataInitializer ya terminó de cargar datos.
++      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: 'true'
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-java@v4
++        with: { distribution: temurin, java-version: '17', cache: maven }
++      - name: Token de administrador para las pruebas (sin código MFA)
++        run: |
++          TOKEN=$(python3 k6/generar_token.py)
++          echo "::add-mask::$TOKEN"
++          echo "TOKEN=$TOKEN" >> "$GITHUB_ENV"
++      - name: Levantar el backend
++        run: |
++          chmod +x mvnw
++          ./mvnw -B -DskipTests package
++          nohup java -jar target/*.jar > backend.log 2>&1 &
++          # SecurityConfig exige autenticación también en /actuator, por eso la espera usa el token.
++          for i in $(seq 1 100); do
++            CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" http://localhost:8080/actuator/health/readiness || true)
++            [ "$CODIGO" = "200" ] && break
++            sleep 3
++          done
++          if [ "$CODIGO" != "200" ]; then echo "El backend no quedó listo (último código: $CODIGO)"; tail -50 backend.log; exit 1; fi
++      - name: Preparar el producto de prueba (stock alto para no agotarlo durante la carga)
++        env:
++          MYSQL_PWD: pruebas
++        run: mysql --protocol=TCP -h127.0.0.1 -uroot tienda_db -e "UPDATE productos SET stock = 1000000 WHERE id = 1;"
++      - uses: grafana/setup-k6-action@v1
++      - name: Ejecutar escenario k6
++        env:
++          PRODUCTO_ID: '1'
++          CLIENTE_ID: '1'
++          USUARIO_ID: '1'
++        run: |
++          ESC="${{ github.event.inputs.escenario || (github.event_name == 'schedule' && 'carga' || 'humo') }}"
++          case "$ESC" in
++            humo)   FILE=k6/humo.js ;;
++            carga)  FILE=k6/busqueda_productos.js ;;
++            pico)   FILE=k6/venta_pico.js ;;
++            estres) FILE=k6/estres.js ;;
++          esac
++          k6 run --summary-export=resumen-k6.json "$FILE"
++      - uses: actions/upload-artifact@v4
++        if: always()
++        with:
++          name: reportes-rendimiento
++          path: |
++            resumen-k6.json
++            backend.log
+diff --git a/sonar-project.properties b/sonar-project.properties
+new file mode 100644
+index 0000000..d56d7f0
+--- /dev/null
++++ b/sonar-project.properties
+@@ -0,0 +1,7 @@
++# SonarCloud (repositorio BACKEND): reemplazar los valores TU_*.
++sonar.organization=TU_ORGANIZACION
++sonar.projectKey=TU_PROYECTO_BACKEND
++sonar.sources=src/main/java
++sonar.tests=src/test/java
++sonar.java.binaries=target/classes
++sonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+-- 
+2.43.0
+
