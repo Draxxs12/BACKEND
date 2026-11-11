@@ -99,7 +99,9 @@ jobs:
             humo)   FILE=k6/humo.js ;;
             carga)  FILE=k6/busqueda_productos.js ;;
             pico)   FILE=k6/venta_pico.js ;;
-            estres) FILE=k6/estres.js ;;\n            reportes) FILE=k6/reportes_volumen.js ;;
+            estres) FILE=k6/estres.js ;;
+            reportes) FILE=k6/reportes_volumen.js ;;
+            *) echo "Escenario no reconocido: $ESC"; exit 1 ;;
           esac
           k6 run --summary-export=resumen-k6.json "$FILE"
       - uses: actions/upload-artifact@v4
