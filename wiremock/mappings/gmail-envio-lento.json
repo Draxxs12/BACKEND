@@ -1,0 +1,2 @@
+{ "request": { "method": "POST", "urlPathPattern": "/gmail/v1/users/.*/messages/send" },
+  "response": { "status": 200, "fixedDelayMilliseconds": 30000, "jsonBody": { "id": "simulado" } } }

@@ -1,0 +1,2 @@
+{ "request": { "method": "POST", "urlPath": "/openai/v1/chat/completions" },
+  "response": { "status": 500, "body": "error simulado" } }

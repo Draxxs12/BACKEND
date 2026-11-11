@@ -1,0 +1,2 @@
+{ "request": { "method": "POST", "urlPath": "/openai/v1/chat/completions" },
+  "response": { "status": 200, "fixedDelayMilliseconds": 30000, "jsonBody": { "choices": [ { "message": { "content": "respuesta simulada" } } ] } } }
