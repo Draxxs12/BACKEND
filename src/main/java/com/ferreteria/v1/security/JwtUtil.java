@@ -17,7 +17,7 @@ import io.jsonwebtoken.security.Keys;
 public class JwtUtil {
 
     // Clave secreta — en producción va en variables de entorno, no en el código
-    @Value("${jwt.secret:dGhpc0lzQVNlY3JldEtleUZvckZlcnJldGVyaWFQcm9ncmVzb2xDaGFyaXRvMjAyNg==}")
+    @Value("${jwt.secret}")
     private String secret;
 
     // 8 horas de validez del token
