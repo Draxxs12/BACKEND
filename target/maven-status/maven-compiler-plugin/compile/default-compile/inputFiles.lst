@@ -24,6 +24,14 @@ C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\controllers\Usuari
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\controllers\UsuarioRequest.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\controllers\VentaController.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\controllers\VentaRequest.java
+C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\CuentaPorCobrar.java
+C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\EnviadorCorreo.java
+C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\EstadoCuenta.java
+C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\EstadoMora.java
+C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\MoraClienteService.java
+C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\NotificadorPago.java
+C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\PoliticaCredito.java
+C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\credito\ResultadoEnvio.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\exceptions\GlobalExceptionHandler.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\exceptions\RecursoNoEncontradoException.java
 C:\Users\DANY\Desktop\BACKEND\src\main\java\com\ferreteria\v1\exceptions\ValidacionException.java

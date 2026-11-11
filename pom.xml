@@ -28,5 +28,26 @@
 		<dependency><groupId>com.google.apis</groupId><artifactId>google-api-services-gmail</artifactId><version>v1-rev20260727-2.0.0</version></dependency>
 		<dependency><groupId>com.google.auth</groupId><artifactId>google-auth-library-oauth2-http</artifactId><version>1.52.0</version></dependency>
 	</dependencies>
-	<build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins></build>
+	<build><plugins>
+		<plugin>
+			<groupId>org.apache.maven.plugins</groupId>
+			<artifactId>maven-enforcer-plugin</artifactId>
+			<version>3.5.0</version>
+			<executions>
+				<execution>
+					<id>enforce-java-17</id>
+					<phase>validate</phase>
+					<goals><goal>enforce</goal></goals>
+					<configuration>
+						<rules>
+							<requireJavaVersion>
+								<version>[17,18)</version>
+							</requireJavaVersion>
+						</rules>
+					</configuration>
+				</execution>
+			</executions>
+		</plugin>
+		<plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
+	</plugins></build>
 </project>

@@ -1,0 +1,965 @@
+From 1b97580dff5b35cd72c8a37c19b1b2b479d240c5 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 01/16] test(HU-S3-01): fase RED - un credito sin fecha de
+ vencimiento debe rechazarse
+
+---
+ .../v1/credito/PoliticaCredito.java           | 10 ++++++++
+ .../v1/credito/PoliticaCreditoTest.java       | 24 +++++++++++++++++++
+ 2 files changed, 34 insertions(+)
+ create mode 100644 src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java
+ create mode 100644 src/test/java/com/ferreteria/v1/credito/PoliticaCreditoTest.java
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java b/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java
+new file mode 100644
+index 0000000..628ca3b
+--- /dev/null
++++ b/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java
+@@ -0,0 +1,10 @@
++package com.ferreteria.v1.credito;
++
++import java.time.LocalDate;
++
++/** Esqueleto (fase Red): compila, pero todavía no valida nada. */
++public class PoliticaCredito {
++
++    public void validarVencimiento(LocalDate vencimiento, LocalDate hoy) {
++    }
++}
+diff --git a/src/test/java/com/ferreteria/v1/credito/PoliticaCreditoTest.java b/src/test/java/com/ferreteria/v1/credito/PoliticaCreditoTest.java
+new file mode 100644
+index 0000000..7bd321a
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/credito/PoliticaCreditoTest.java
+@@ -0,0 +1,24 @@
++package com.ferreteria.v1.credito;
++
++import static org.junit.jupiter.api.Assertions.*;
++
++import java.time.LocalDate;
++
++import org.junit.jupiter.api.Test;
++
++import com.ferreteria.v1.exceptions.ValidacionException;
++
++/** HU-S3-01 (RF-16): una venta al crédito exige una fecha de vencimiento válida. */
++class PoliticaCreditoTest {
++
++    private final PoliticaCredito politica = new PoliticaCredito();
++    private final LocalDate hoy = LocalDate.of(2026, 10, 27);
++
++    @Test
++    void ventaAlCreditoSinFechaDeVencimientoSeRechaza() {
++        ValidacionException ex = assertThrows(ValidacionException.class,
++                () -> politica.validarVencimiento(null, hoy));
++
++        assertEquals("Indica la fecha de vencimiento del crédito.", ex.getMessage());
++    }
++}
+-- 
+2.43.0
+
+
+From 1c7ca77584d8eecc473860482232a9f1494df2a8 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 02/16] feat(HU-S3-01): fase GREEN - codigo minimo: rechazar
+ vencimiento nulo
+
+---
+ .../java/com/ferreteria/v1/credito/PoliticaCredito.java     | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java b/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java
+index 628ca3b..c2efbda 100644
+--- a/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java
++++ b/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java
+@@ -2,9 +2,13 @@ package com.ferreteria.v1.credito;
+ 
+ import java.time.LocalDate;
+ 
+-/** Esqueleto (fase Red): compila, pero todavía no valida nada. */
++import com.ferreteria.v1.exceptions.ValidacionException;
++
+ public class PoliticaCredito {
+ 
+     public void validarVencimiento(LocalDate vencimiento, LocalDate hoy) {
++        if (vencimiento == null) {
++            throw new ValidacionException("Indica la fecha de vencimiento del crédito.");
++        }
+     }
+ }
+-- 
+2.43.0
+
+
+From 89fb8475e97bc024424abb8395087a33138aae0b Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 03/16] test+feat(HU-S3-01): iteraciones Red-Green de los
+ valores limite (hoy, pasado, manana)
+
+---
+ .../v1/credito/PoliticaCredito.java           |  4 ++++
+ .../v1/credito/PoliticaCreditoTest.java       | 19 +++++++++++++++++++
+ 2 files changed, 23 insertions(+)
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java b/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java
+index c2efbda..f923536 100644
+--- a/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java
++++ b/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java
+@@ -9,6 +9,10 @@ public class PoliticaCredito {
+     public void validarVencimiento(LocalDate vencimiento, LocalDate hoy) {
+         if (vencimiento == null) {
+             throw new ValidacionException("Indica la fecha de vencimiento del crédito.");
++        } else {
++            if (!vencimiento.isAfter(hoy)) {
++                throw new ValidacionException("La fecha de vencimiento debe ser posterior a hoy.");
++            }
+         }
+     }
+ }
+diff --git a/src/test/java/com/ferreteria/v1/credito/PoliticaCreditoTest.java b/src/test/java/com/ferreteria/v1/credito/PoliticaCreditoTest.java
+index 7bd321a..b0e3ac7 100644
+--- a/src/test/java/com/ferreteria/v1/credito/PoliticaCreditoTest.java
++++ b/src/test/java/com/ferreteria/v1/credito/PoliticaCreditoTest.java
+@@ -21,4 +21,23 @@ class PoliticaCreditoTest {
+ 
+         assertEquals("Indica la fecha de vencimiento del crédito.", ex.getMessage());
+     }
++
++    @Test
++    void vencimientoIgualAHoySeRechaza_valorLimite() {
++        ValidacionException ex = assertThrows(ValidacionException.class,
++                () -> politica.validarVencimiento(hoy, hoy));
++
++        assertEquals("La fecha de vencimiento debe ser posterior a hoy.", ex.getMessage());
++    }
++
++    @Test
++    void vencimientoEnElPasadoSeRechaza() {
++        assertThrows(ValidacionException.class,
++                () -> politica.validarVencimiento(hoy.minusDays(1), hoy));
++    }
++
++    @Test
++    void vencimientoDeMananaEsValido_valorLimite() {
++        assertDoesNotThrow(() -> politica.validarVencimiento(hoy.plusDays(1), hoy));
++    }
+ }
+-- 
+2.43.0
+
+
+From 8411258033def5fdc012a2ecec574852dacb8384 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 04/16] refactor(HU-S3-01): clausulas de guarda y mensajes como
+ constantes (pruebas intactas)
+
+---
+ .../com/ferreteria/v1/credito/PoliticaCredito.java   | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java b/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java
+index f923536..25fbe4d 100644
+--- a/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java
++++ b/src/main/java/com/ferreteria/v1/credito/PoliticaCredito.java
+@@ -6,13 +6,15 @@ import com.ferreteria.v1.exceptions.ValidacionException;
+ 
+ public class PoliticaCredito {
+ 
++    static final String SIN_FECHA   = "Indica la fecha de vencimiento del crédito.";
++    static final String FECHA_PASADA = "La fecha de vencimiento debe ser posterior a hoy.";
++
+     public void validarVencimiento(LocalDate vencimiento, LocalDate hoy) {
+         if (vencimiento == null) {
+-            throw new ValidacionException("Indica la fecha de vencimiento del crédito.");
+-        } else {
+-            if (!vencimiento.isAfter(hoy)) {
+-                throw new ValidacionException("La fecha de vencimiento debe ser posterior a hoy.");
+-            }
++            throw new ValidacionException(SIN_FECHA);
++        }
++        if (!vencimiento.isAfter(hoy)) {
++            throw new ValidacionException(FECHA_PASADA);
+         }
+     }
+ }
+-- 
+2.43.0
+
+
+From 3a82267ea2ee251cbfa6c9722020f51c4554b64f Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 05/16] test(HU-S3-02): fase RED - cliente con saldo y factura
+ vencida hace 5 dias es MOROSO
+
+---
+ .../com/ferreteria/v1/credito/EstadoMora.java |  4 ++++
+ .../v1/credito/MoraClienteService.java        | 12 ++++++++++
+ .../v1/credito/MoraClienteServiceTest.java    | 23 +++++++++++++++++++
+ 3 files changed, 39 insertions(+)
+ create mode 100644 src/main/java/com/ferreteria/v1/credito/EstadoMora.java
+ create mode 100644 src/main/java/com/ferreteria/v1/credito/MoraClienteService.java
+ create mode 100644 src/test/java/com/ferreteria/v1/credito/MoraClienteServiceTest.java
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/EstadoMora.java b/src/main/java/com/ferreteria/v1/credito/EstadoMora.java
+new file mode 100644
+index 0000000..5c9e52a
+--- /dev/null
++++ b/src/main/java/com/ferreteria/v1/credito/EstadoMora.java
+@@ -0,0 +1,4 @@
++package com.ferreteria.v1.credito;
++
++/** Estado de mora de un cliente. */
++public enum EstadoMora { AL_DIA, MOROSO }
+diff --git a/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java b/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java
+new file mode 100644
+index 0000000..55d00ae
+--- /dev/null
++++ b/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java
+@@ -0,0 +1,12 @@
++package com.ferreteria.v1.credito;
++
++import java.math.BigDecimal;
++import java.time.LocalDate;
++
++/** Esqueleto (fase Red): compila, pero devuelve null. */
++public class MoraClienteService {
++
++    public EstadoMora calcularEstado(BigDecimal saldoPendiente, LocalDate vencimiento, LocalDate hoy) {
++        return null;
++    }
++}
+diff --git a/src/test/java/com/ferreteria/v1/credito/MoraClienteServiceTest.java b/src/test/java/com/ferreteria/v1/credito/MoraClienteServiceTest.java
+new file mode 100644
+index 0000000..b20cf21
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/credito/MoraClienteServiceTest.java
+@@ -0,0 +1,23 @@
++package com.ferreteria.v1.credito;
++
++import static org.junit.jupiter.api.Assertions.*;
++
++import java.math.BigDecimal;
++import java.time.LocalDate;
++
++import org.junit.jupiter.api.Test;
++
++/** HU-S3-02 (RF-16): estado de mora de un cliente (AL_DIA, POR_VENCER, MOROSO). */
++class MoraClienteServiceTest {
++
++    private final MoraClienteService service = new MoraClienteService();
++    private final LocalDate hoy = LocalDate.of(2026, 10, 20);
++    private final BigDecimal deuda = new BigDecimal("150.00");
++
++    @Test
++    void clienteConSaldoYFacturaVencidaHaceCincoDiasEsMoroso() {
++        EstadoMora estado = service.calcularEstado(deuda, hoy.minusDays(5), hoy);
++
++        assertEquals(EstadoMora.MOROSO, estado);
++    }
++}
+-- 
+2.43.0
+
+
+From c809a4a45e2309c404b5a5d8e54d78fcf5e66c28 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 06/16] feat(HU-S3-02): fase GREEN - codigo minimo: moroso si
+ hay saldo y ya vencio
+
+---
+ .../java/com/ferreteria/v1/credito/MoraClienteService.java  | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java b/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java
+index 55d00ae..ed3bc44 100644
+--- a/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java
++++ b/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java
+@@ -3,10 +3,12 @@ package com.ferreteria.v1.credito;
+ import java.math.BigDecimal;
+ import java.time.LocalDate;
+ 
+-/** Esqueleto (fase Red): compila, pero devuelve null. */
+ public class MoraClienteService {
+ 
+     public EstadoMora calcularEstado(BigDecimal saldoPendiente, LocalDate vencimiento, LocalDate hoy) {
+-        return null;
++        if (saldoPendiente.signum() > 0 && hoy.isAfter(vencimiento)) {
++            return EstadoMora.MOROSO;
++        }
++        return EstadoMora.AL_DIA;
+     }
+ }
+-- 
+2.43.0
+
+
+From 08eb3436a8f4e8fb0544caaacd5c5a764e37fd63 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 07/16] test+feat(HU-S3-02): iteraciones Red-Green: POR_VENCER,
+ limites y cliente sin saldo (codigo aun anidado)
+
+---
+ .../com/ferreteria/v1/credito/EstadoMora.java |  2 +-
+ .../v1/credito/MoraClienteService.java        | 15 ++++++++---
+ .../v1/credito/MoraClienteServiceTest.java    | 26 +++++++++++++++++++
+ 3 files changed, 39 insertions(+), 4 deletions(-)
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/EstadoMora.java b/src/main/java/com/ferreteria/v1/credito/EstadoMora.java
+index 5c9e52a..3970a71 100644
+--- a/src/main/java/com/ferreteria/v1/credito/EstadoMora.java
++++ b/src/main/java/com/ferreteria/v1/credito/EstadoMora.java
+@@ -1,4 +1,4 @@
+ package com.ferreteria.v1.credito;
+ 
+ /** Estado de mora de un cliente. */
+-public enum EstadoMora { AL_DIA, MOROSO }
++public enum EstadoMora { AL_DIA, POR_VENCER, MOROSO }
+diff --git a/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java b/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java
+index ed3bc44..7489faf 100644
+--- a/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java
++++ b/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java
+@@ -6,9 +6,18 @@ import java.time.LocalDate;
+ public class MoraClienteService {
+ 
+     public EstadoMora calcularEstado(BigDecimal saldoPendiente, LocalDate vencimiento, LocalDate hoy) {
+-        if (saldoPendiente.signum() > 0 && hoy.isAfter(vencimiento)) {
+-            return EstadoMora.MOROSO;
++        if (saldoPendiente != null && saldoPendiente.signum() > 0) {
++            if (hoy.isAfter(vencimiento)) {
++                return EstadoMora.MOROSO;
++            } else {
++                if (!hoy.plusDays(3).isBefore(vencimiento)) {
++                    return EstadoMora.POR_VENCER;
++                } else {
++                    return EstadoMora.AL_DIA;
++                }
++            }
++        } else {
++            return EstadoMora.AL_DIA;
+         }
+-        return EstadoMora.AL_DIA;
+     }
+ }
+diff --git a/src/test/java/com/ferreteria/v1/credito/MoraClienteServiceTest.java b/src/test/java/com/ferreteria/v1/credito/MoraClienteServiceTest.java
+index b20cf21..802084c 100644
+--- a/src/test/java/com/ferreteria/v1/credito/MoraClienteServiceTest.java
++++ b/src/test/java/com/ferreteria/v1/credito/MoraClienteServiceTest.java
+@@ -20,4 +20,30 @@ class MoraClienteServiceTest {
+ 
+         assertEquals(EstadoMora.MOROSO, estado);
+     }
++
++    @Test
++    void facturaVencidaAyerEsMorosa_valorLimite() {
++        assertEquals(EstadoMora.MOROSO, service.calcularEstado(deuda, hoy.minusDays(1), hoy));
++    }
++
++    @Test
++    void facturaQueVenceHoyEstaPorVencer_valorLimite() {
++        assertEquals(EstadoMora.POR_VENCER, service.calcularEstado(deuda, hoy, hoy));
++    }
++
++    @Test
++    void facturaQueVenceEnTresDiasEstaPorVencer_valorLimite() {
++        assertEquals(EstadoMora.POR_VENCER, service.calcularEstado(deuda, hoy.plusDays(3), hoy));
++    }
++
++    @Test
++    void facturaQueVenceEnCuatroDiasEstaAlDia_valorLimite() {
++        assertEquals(EstadoMora.AL_DIA, service.calcularEstado(deuda, hoy.plusDays(4), hoy));
++    }
++
++    @Test
++    void clienteSinSaldoEstaAlDiaAunqueLaFacturaEsteVencida() {
++        assertEquals(EstadoMora.AL_DIA, service.calcularEstado(BigDecimal.ZERO, hoy.minusDays(30), hoy));
++        assertEquals(EstadoMora.AL_DIA, service.calcularEstado(null, hoy.minusDays(30), hoy));
++    }
+ }
+-- 
+2.43.0
+
+
+From b83bfe4e9eefba0f3c2889763730466abd264998 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 08/16] refactor(HU-S3-02): de codigo anidado (Spaghetti) a
+ reglas pequenas (Ravioli); pruebas intactas
+
+---
+ .../v1/credito/MoraClienteService.java        | 31 +++++++++++--------
+ 1 file changed, 18 insertions(+), 13 deletions(-)
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java b/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java
+index 7489faf..ead6cf2 100644
+--- a/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java
++++ b/src/main/java/com/ferreteria/v1/credito/MoraClienteService.java
+@@ -5,19 +5,24 @@ import java.time.LocalDate;
+ 
+ public class MoraClienteService {
+ 
++    static final int DIAS_AVISO = 3;   // unica fuente del plazo de aviso
++
+     public EstadoMora calcularEstado(BigDecimal saldoPendiente, LocalDate vencimiento, LocalDate hoy) {
+-        if (saldoPendiente != null && saldoPendiente.signum() > 0) {
+-            if (hoy.isAfter(vencimiento)) {
+-                return EstadoMora.MOROSO;
+-            } else {
+-                if (!hoy.plusDays(3).isBefore(vencimiento)) {
+-                    return EstadoMora.POR_VENCER;
+-                } else {
+-                    return EstadoMora.AL_DIA;
+-                }
+-            }
+-        } else {
+-            return EstadoMora.AL_DIA;
+-        }
++        if (!tieneDeuda(saldoPendiente))     return EstadoMora.AL_DIA;
++        if (estaVencida(vencimiento, hoy))   return EstadoMora.MOROSO;
++        if (estaPorVencer(vencimiento, hoy)) return EstadoMora.POR_VENCER;
++        return EstadoMora.AL_DIA;
++    }
++
++    private boolean tieneDeuda(BigDecimal saldo) {
++        return saldo != null && saldo.signum() > 0;
++    }
++
++    private boolean estaVencida(LocalDate vencimiento, LocalDate hoy) {
++        return hoy.isAfter(vencimiento);
++    }
++
++    private boolean estaPorVencer(LocalDate vencimiento, LocalDate hoy) {
++        return !hoy.plusDays(DIAS_AVISO).isBefore(vencimiento);
+     }
+ }
+-- 
+2.43.0
+
+
+From 488f16051a726dfb1751a4febebc353b4e15c86c Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 09/16] test(HU-S3-03): fase RED - un pago parcial descuenta
+ del saldo
+
+---
+ .../v1/credito/CuentaPorCobrar.java           | 20 ++++++++++++
+ .../ferreteria/v1/credito/EstadoCuenta.java   |  3 ++
+ .../v1/credito/CuentaPorCobrarTest.java       | 31 +++++++++++++++++++
+ 3 files changed, 54 insertions(+)
+ create mode 100644 src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java
+ create mode 100644 src/main/java/com/ferreteria/v1/credito/EstadoCuenta.java
+ create mode 100644 src/test/java/com/ferreteria/v1/credito/CuentaPorCobrarTest.java
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java b/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java
+new file mode 100644
+index 0000000..7df7ed8
+--- /dev/null
++++ b/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java
+@@ -0,0 +1,20 @@
++package com.ferreteria.v1.credito;
++
++import java.math.BigDecimal;
++
++/** Esqueleto (fase Red): aplicarPago todavia no hace nada. */
++public class CuentaPorCobrar {
++
++    private BigDecimal saldo;
++    private EstadoCuenta estado = EstadoCuenta.PENDIENTE;
++
++    public CuentaPorCobrar(BigDecimal saldoInicial) {
++        this.saldo = saldoInicial;
++    }
++
++    public void aplicarPago(BigDecimal monto) {
++    }
++
++    public BigDecimal getSaldo()    { return saldo; }
++    public EstadoCuenta getEstado() { return estado; }
++}
+diff --git a/src/main/java/com/ferreteria/v1/credito/EstadoCuenta.java b/src/main/java/com/ferreteria/v1/credito/EstadoCuenta.java
+new file mode 100644
+index 0000000..d3ceeff
+--- /dev/null
++++ b/src/main/java/com/ferreteria/v1/credito/EstadoCuenta.java
+@@ -0,0 +1,3 @@
++package com.ferreteria.v1.credito;
++
++public enum EstadoCuenta { PENDIENTE, PAGADA }
+diff --git a/src/test/java/com/ferreteria/v1/credito/CuentaPorCobrarTest.java b/src/test/java/com/ferreteria/v1/credito/CuentaPorCobrarTest.java
+new file mode 100644
+index 0000000..628b772
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/credito/CuentaPorCobrarTest.java
+@@ -0,0 +1,31 @@
++package com.ferreteria.v1.credito;
++
++import static org.junit.jupiter.api.Assertions.*;
++
++import java.math.BigDecimal;
++
++import org.junit.jupiter.api.Test;
++
++import com.ferreteria.v1.exceptions.ValidacionException;
++
++/** HU-S3-03 (RF-18): pago total o parcial de una deuda. */
++class CuentaPorCobrarTest {
++
++    private CuentaPorCobrar cuenta500() {
++        return new CuentaPorCobrar(new BigDecimal("500.00"));
++    }
++
++    private void assertSaldo(String esperado, CuentaPorCobrar c) {
++        assertEquals(0, new BigDecimal(esperado).compareTo(c.getSaldo()), "saldo actual: " + c.getSaldo());
++    }
++
++    @Test
++    void pagoParcialDescuentaDelSaldoYLaCuentaSigueEnPendiente() {
++        CuentaPorCobrar cuenta = cuenta500();
++
++        cuenta.aplicarPago(new BigDecimal("200.00"));
++
++        assertSaldo("300.00", cuenta);
++        assertEquals(EstadoCuenta.PENDIENTE, cuenta.getEstado());
++    }
++}
+-- 
+2.43.0
+
+
+From 20d7f7ba13d61b61931857c9f372df2c1216adf6 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 10/16] feat(HU-S3-03): fase GREEN - codigo minimo: restar el
+ pago del saldo
+
+---
+ src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java b/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java
+index 7df7ed8..8859cf1 100644
+--- a/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java
++++ b/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java
+@@ -2,7 +2,6 @@ package com.ferreteria.v1.credito;
+ 
+ import java.math.BigDecimal;
+ 
+-/** Esqueleto (fase Red): aplicarPago todavia no hace nada. */
+ public class CuentaPorCobrar {
+ 
+     private BigDecimal saldo;
+@@ -13,6 +12,7 @@ public class CuentaPorCobrar {
+     }
+ 
+     public void aplicarPago(BigDecimal monto) {
++        saldo = saldo.subtract(monto);
+     }
+ 
+     public BigDecimal getSaldo()    { return saldo; }
+-- 
+2.43.0
+
+
+From 239e6970faa7b7d2580fe187515ecea8ccc30efa Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 11/16] test+feat(HU-S3-03): iteraciones Red-Green: saldo
+ exacto, monto 0, negativo, mayor al saldo
+
+---
+ .../v1/credito/CuentaPorCobrar.java           | 11 +++++
+ .../v1/credito/CuentaPorCobrarTest.java       | 41 +++++++++++++++++++
+ 2 files changed, 52 insertions(+)
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java b/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java
+index 8859cf1..2e7a33b 100644
+--- a/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java
++++ b/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java
+@@ -2,6 +2,8 @@ package com.ferreteria.v1.credito;
+ 
+ import java.math.BigDecimal;
+ 
++import com.ferreteria.v1.exceptions.ValidacionException;
++
+ public class CuentaPorCobrar {
+ 
+     private BigDecimal saldo;
+@@ -12,7 +14,16 @@ public class CuentaPorCobrar {
+     }
+ 
+     public void aplicarPago(BigDecimal monto) {
++        if (monto == null || monto.signum() <= 0) {
++            throw new ValidacionException("El monto del pago debe ser mayor que 0.");
++        }
++        if (monto.compareTo(saldo) > 0) {
++            throw new ValidacionException("El pago no puede ser mayor que el saldo pendiente.");
++        }
+         saldo = saldo.subtract(monto);
++        if (saldo.compareTo(BigDecimal.ZERO) == 0) {
++            estado = EstadoCuenta.PAGADA;
++        }
+     }
+ 
+     public BigDecimal getSaldo()    { return saldo; }
+diff --git a/src/test/java/com/ferreteria/v1/credito/CuentaPorCobrarTest.java b/src/test/java/com/ferreteria/v1/credito/CuentaPorCobrarTest.java
+index 628b772..e01ccd0 100644
+--- a/src/test/java/com/ferreteria/v1/credito/CuentaPorCobrarTest.java
++++ b/src/test/java/com/ferreteria/v1/credito/CuentaPorCobrarTest.java
+@@ -28,4 +28,45 @@ class CuentaPorCobrarTest {
+         assertSaldo("300.00", cuenta);
+         assertEquals(EstadoCuenta.PENDIENTE, cuenta.getEstado());
+     }
++
++    @Test
++    void pagoDelSaldoExactoDejaLaCuentaPagada_valorLimite() {
++        CuentaPorCobrar cuenta = cuenta500();
++
++        cuenta.aplicarPago(new BigDecimal("500.00"));
++
++        assertSaldo("0.00", cuenta);
++        assertEquals(EstadoCuenta.PAGADA, cuenta.getEstado());
++    }
++
++    @Test
++    void pagoMayorAlSaldoSeRechaza_valorLimite() {
++        ValidacionException ex = assertThrows(ValidacionException.class,
++                () -> cuenta500().aplicarPago(new BigDecimal("500.01")));
++
++        assertEquals("El pago no puede ser mayor que el saldo pendiente.", ex.getMessage());
++    }
++
++    @Test
++    void pagoDeCeroSeRechaza_valorLimite() {
++        ValidacionException ex = assertThrows(ValidacionException.class,
++                () -> cuenta500().aplicarPago(BigDecimal.ZERO));
++
++        assertEquals("El monto del pago debe ser mayor que 0.", ex.getMessage());
++    }
++
++    @Test
++    void pagoNegativoSeRechaza() {
++        assertThrows(ValidacionException.class, () -> cuenta500().aplicarPago(new BigDecimal("-5")));
++    }
++
++    @Test
++    void siElPagoSeRechazaElSaldoQuedaIntacto() {
++        CuentaPorCobrar cuenta = cuenta500();
++
++        assertThrows(ValidacionException.class, () -> cuenta.aplicarPago(new BigDecimal("999.00")));
++
++        assertSaldo("500.00", cuenta);
++        assertEquals(EstadoCuenta.PENDIENTE, cuenta.getEstado());
++    }
+ }
+-- 
+2.43.0
+
+
+From 49a127947700240435087e833db9dc8871e8259d Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 12/16] refactor(HU-S3-03): extraer validarMonto; aplicarPago
+ queda legible (pruebas intactas)
+
+---
+ .../com/ferreteria/v1/credito/CuentaPorCobrar.java  | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java b/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java
+index 2e7a33b..4da50f9 100644
+--- a/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java
++++ b/src/main/java/com/ferreteria/v1/credito/CuentaPorCobrar.java
+@@ -13,17 +13,22 @@ public class CuentaPorCobrar {
+         this.saldo = saldoInicial;
+     }
+ 
++    /** Las validaciones van antes de tocar el saldo: si el pago se rechaza, nada cambia. */
+     public void aplicarPago(BigDecimal monto) {
++        validarMonto(monto);
++        saldo = saldo.subtract(monto);
++        if (saldo.signum() == 0) {
++            estado = EstadoCuenta.PAGADA;
++        }
++    }
++
++    private void validarMonto(BigDecimal monto) {
+         if (monto == null || monto.signum() <= 0) {
+             throw new ValidacionException("El monto del pago debe ser mayor que 0.");
+         }
+         if (monto.compareTo(saldo) > 0) {
+             throw new ValidacionException("El pago no puede ser mayor que el saldo pendiente.");
+         }
+-        saldo = saldo.subtract(monto);
+-        if (saldo.compareTo(BigDecimal.ZERO) == 0) {
+-            estado = EstadoCuenta.PAGADA;
+-        }
+     }
+ 
+     public BigDecimal getSaldo()    { return saldo; }
+-- 
+2.43.0
+
+
+From 8c4fad62dbcf7f27f203da6db9740503e6525732 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 13/16] test(HU-S3-04): fase RED - con correo del cliente se
+ envia la confirmacion de pago
+
+---
+ .../ferreteria/v1/credito/EnviadorCorreo.java |  6 ++++
+ .../v1/credito/NotificadorPago.java           | 17 +++++++++++
+ .../ferreteria/v1/credito/ResultadoEnvio.java |  3 ++
+ .../v1/credito/NotificadorPagoTest.java       | 28 +++++++++++++++++++
+ 4 files changed, 54 insertions(+)
+ create mode 100644 src/main/java/com/ferreteria/v1/credito/EnviadorCorreo.java
+ create mode 100644 src/main/java/com/ferreteria/v1/credito/NotificadorPago.java
+ create mode 100644 src/main/java/com/ferreteria/v1/credito/ResultadoEnvio.java
+ create mode 100644 src/test/java/com/ferreteria/v1/credito/NotificadorPagoTest.java
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/EnviadorCorreo.java b/src/main/java/com/ferreteria/v1/credito/EnviadorCorreo.java
+new file mode 100644
+index 0000000..c8db901
+--- /dev/null
++++ b/src/main/java/com/ferreteria/v1/credito/EnviadorCorreo.java
+@@ -0,0 +1,6 @@
++package com.ferreteria.v1.credito;
++
++/** Puerto de salida del correo. EmailService (Gmail API) podra implementarlo mas adelante. */
++public interface EnviadorCorreo {
++    void enviar(String destino, String asunto, String cuerpo);
++}
+diff --git a/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java b/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java
+new file mode 100644
+index 0000000..8389664
+--- /dev/null
++++ b/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java
+@@ -0,0 +1,17 @@
++package com.ferreteria.v1.credito;
++
++import java.math.BigDecimal;
++
++/** Esqueleto (fase Red): compila, pero devuelve null y no envia nada. */
++public class NotificadorPago {
++
++    private final EnviadorCorreo correo;
++
++    public NotificadorPago(EnviadorCorreo correo) {
++        this.correo = correo;
++    }
++
++    public ResultadoEnvio confirmarPago(String emailCliente, String factura, BigDecimal monto) {
++        return null;
++    }
++}
+diff --git a/src/main/java/com/ferreteria/v1/credito/ResultadoEnvio.java b/src/main/java/com/ferreteria/v1/credito/ResultadoEnvio.java
+new file mode 100644
+index 0000000..88fdada
+--- /dev/null
++++ b/src/main/java/com/ferreteria/v1/credito/ResultadoEnvio.java
+@@ -0,0 +1,3 @@
++package com.ferreteria.v1.credito;
++
++public enum ResultadoEnvio { ENVIADO, PENDIENTE, SIN_CORREO }
+diff --git a/src/test/java/com/ferreteria/v1/credito/NotificadorPagoTest.java b/src/test/java/com/ferreteria/v1/credito/NotificadorPagoTest.java
+new file mode 100644
+index 0000000..c2c8068
+--- /dev/null
++++ b/src/test/java/com/ferreteria/v1/credito/NotificadorPagoTest.java
+@@ -0,0 +1,28 @@
++package com.ferreteria.v1.credito;
++
++import static org.junit.jupiter.api.Assertions.*;
++
++import java.math.BigDecimal;
++import java.util.ArrayList;
++import java.util.List;
++
++import org.junit.jupiter.api.Test;
++
++/** HU-S3-04 (RF-17): correo de confirmacion de pago. El correo se simula con una interfaz (sin Gmail). */
++class NotificadorPagoTest {
++
++    private final List<String> enviados = new ArrayList<>();
++    private final EnviadorCorreo correoOk = (destino, asunto, cuerpo) -> enviados.add(destino + "|" + asunto);
++    private final BigDecimal monto = new BigDecimal("500.00");
++
++    @Test
++    void conCorreoDelClienteSeEnviaLaConfirmacionDePago() {
++        NotificadorPago notificador = new NotificadorPago(correoOk);
++
++        ResultadoEnvio r = notificador.confirmarPago("ventas@losandes.pe", "F001-00000045", monto);
++
++        assertEquals(ResultadoEnvio.ENVIADO, r);
++        assertEquals(1, enviados.size());
++        assertTrue(enviados.get(0).startsWith("ventas@losandes.pe|"));
++    }
++}
+-- 
+2.43.0
+
+
+From 60e0402c1e35063cfa06ec9180cf3fc2f64e6486 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 14/16] feat(HU-S3-04): fase GREEN - codigo minimo: enviar y
+ devolver ENVIADO
+
+---
+ src/main/java/com/ferreteria/v1/credito/NotificadorPago.java | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java b/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java
+index 8389664..4e8ca18 100644
+--- a/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java
++++ b/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java
+@@ -2,7 +2,6 @@ package com.ferreteria.v1.credito;
+ 
+ import java.math.BigDecimal;
+ 
+-/** Esqueleto (fase Red): compila, pero devuelve null y no envia nada. */
+ public class NotificadorPago {
+ 
+     private final EnviadorCorreo correo;
+@@ -12,6 +11,8 @@ public class NotificadorPago {
+     }
+ 
+     public ResultadoEnvio confirmarPago(String emailCliente, String factura, BigDecimal monto) {
+-        return null;
++        correo.enviar(emailCliente, "Pago recibido " + factura,
++                      "Hemos registrado su pago de S/ " + monto + " de la factura " + factura + ".");
++        return ResultadoEnvio.ENVIADO;
+     }
+ }
+-- 
+2.43.0
+
+
+From 20417f911433d206c7a5b64c3918868c8b40f532 Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 15/16] test+feat(HU-S3-04): iteraciones Red-Green: asunto con
+ factura, correo caido (PENDIENTE), sin correo
+
+---
+ .../v1/credito/NotificadorPago.java           | 13 +++++++---
+ .../v1/credito/NotificadorPagoTest.java       | 25 +++++++++++++++++++
+ 2 files changed, 35 insertions(+), 3 deletions(-)
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java b/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java
+index 4e8ca18..e1caf26 100644
+--- a/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java
++++ b/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java
+@@ -11,8 +11,15 @@ public class NotificadorPago {
+     }
+ 
+     public ResultadoEnvio confirmarPago(String emailCliente, String factura, BigDecimal monto) {
+-        correo.enviar(emailCliente, "Pago recibido " + factura,
+-                      "Hemos registrado su pago de S/ " + monto + " de la factura " + factura + ".");
+-        return ResultadoEnvio.ENVIADO;
++        if (emailCliente == null || emailCliente.isBlank()) {
++            return ResultadoEnvio.SIN_CORREO;
++        }
++        try {
++            correo.enviar(emailCliente, "Pago recibido " + factura,
++                          "Hemos registrado su pago de S/ " + monto + " de la factura " + factura + ".");
++            return ResultadoEnvio.ENVIADO;
++        } catch (RuntimeException e) {
++            return ResultadoEnvio.PENDIENTE;
++        }
+     }
+ }
+diff --git a/src/test/java/com/ferreteria/v1/credito/NotificadorPagoTest.java b/src/test/java/com/ferreteria/v1/credito/NotificadorPagoTest.java
+index c2c8068..4bb2dd3 100644
+--- a/src/test/java/com/ferreteria/v1/credito/NotificadorPagoTest.java
++++ b/src/test/java/com/ferreteria/v1/credito/NotificadorPagoTest.java
+@@ -25,4 +25,29 @@ class NotificadorPagoTest {
+         assertEquals(1, enviados.size());
+         assertTrue(enviados.get(0).startsWith("ventas@losandes.pe|"));
+     }
++
++    @Test
++    void elAsuntoLlevaElNumeroDeFactura() {
++        new NotificadorPago(correoOk).confirmarPago("ventas@losandes.pe", "F001-00000045", monto);
++
++        assertTrue(enviados.get(0).contains("F001-00000045"));
++    }
++
++    @Test
++    void siElServicioDeCorreoFallaElResultadoEsPendienteYNoSePropagaElError() {
++        EnviadorCorreo caido = (destino, asunto, cuerpo) -> { throw new IllegalStateException("Gmail caído"); };
++
++        ResultadoEnvio r = new NotificadorPago(caido).confirmarPago("ventas@losandes.pe", "F001-00000045", monto);
++
++        assertEquals(ResultadoEnvio.PENDIENTE, r);
++    }
++
++    @Test
++    void sinCorreoRegistradoNoSeEnviaNada() {
++        NotificadorPago notificador = new NotificadorPago(correoOk);
++
++        assertEquals(ResultadoEnvio.SIN_CORREO, notificador.confirmarPago("  ", "F001-00000045", monto));
++        assertEquals(ResultadoEnvio.SIN_CORREO, notificador.confirmarPago(null, "F001-00000045", monto));
++        assertTrue(enviados.isEmpty());
++    }
+ }
+-- 
+2.43.0
+
+
+From bd7ef2cbbf097982c2845e97f4edb94470899fda Mon Sep 17 00:00:00 2001
+From: Pruebas Sprint 3 <pruebas@local>
+Date: Tue, 3 Nov 2026 19:39:49 +0000
+Subject: [PATCH 16/16] refactor(HU-S3-04): separar tieneCorreo, asunto y
+ cuerpo (pruebas intactas)
+
+---
+ .../v1/credito/NotificadorPago.java           | 19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java b/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java
+index e1caf26..da09578 100644
+--- a/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java
++++ b/src/main/java/com/ferreteria/v1/credito/NotificadorPago.java
+@@ -11,15 +11,26 @@ public class NotificadorPago {
+     }
+ 
+     public ResultadoEnvio confirmarPago(String emailCliente, String factura, BigDecimal monto) {
+-        if (emailCliente == null || emailCliente.isBlank()) {
++        if (!tieneCorreo(emailCliente)) {
+             return ResultadoEnvio.SIN_CORREO;
+         }
+         try {
+-            correo.enviar(emailCliente, "Pago recibido " + factura,
+-                          "Hemos registrado su pago de S/ " + monto + " de la factura " + factura + ".");
++            correo.enviar(emailCliente, asunto(factura), cuerpo(factura, monto));
+             return ResultadoEnvio.ENVIADO;
+         } catch (RuntimeException e) {
+-            return ResultadoEnvio.PENDIENTE;
++            return ResultadoEnvio.PENDIENTE;   // el pago ya esta guardado; el envio se reintenta despues
+         }
+     }
++
++    private boolean tieneCorreo(String email) {
++        return email != null && !email.isBlank();
++    }
++
++    private String asunto(String factura) {
++        return "Pago recibido " + factura;
++    }
++
++    private String cuerpo(String factura, BigDecimal monto) {
++        return "Hemos registrado su pago de S/ " + monto + " de la factura " + factura + ".";
++    }
+ }
+-- 
+2.43.0
+
