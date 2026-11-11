@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ferreteria.v1.exceptions.ValidacionException;
 import com.ferreteria.v1.models.Compra;
 import com.ferreteria.v1.models.Compra.Estado;
 import com.ferreteria.v1.models.DetalleCompra;
@@ -28,7 +29,6 @@ public class CompraService {
     public List<Compra> listarTodos() {
         return compraRepository.findAll();
     }
-    
 
     public Compra buscarPorId(Integer id) {
         return compraRepository.findById(id).orElse(null);
@@ -36,6 +36,8 @@ public class CompraService {
 
     @Transactional
     public Compra guardar(Compra compra) {
+
+        validarCompra(compra);
 
         boolean esNueva = (compra.getId() == null);
 
@@ -50,7 +52,7 @@ public class CompraService {
             String numeroOrden = String.format("OC-%05d", count + 1);
             compra.setNumeroOrden(numeroOrden);
         }
-        
+
         List<DetalleCompra> detalles = compra.getDetalles();
         BigDecimal subtotal = BigDecimal.ZERO;
 
@@ -101,7 +103,38 @@ public class CompraService {
 
         return guardada;
     }
-    
+
+    private void validarCompra(Compra compra) {
+        if (compra == null) {
+            throw new ValidacionException("Debes proporcionar los datos de la compra.");
+        }
+
+        if (compra.getProveedor() == null) {
+            throw new ValidacionException("Debes seleccionar un proveedor para la compra.");
+        }
+
+        List<DetalleCompra> detalles = compra.getDetalles();
+        if (detalles == null || detalles.isEmpty()) {
+            throw new ValidacionException("La compra debe contener al menos un producto.");
+        }
+
+        for (DetalleCompra detalle : detalles) {
+            if (detalle == null || detalle.getProducto() == null
+                    || detalle.getProducto().getId() == null) {
+                throw new ValidacionException("Debes seleccionar un producto válido para cada detalle.");
+            }
+
+            if (detalle.getCantidad() == null || detalle.getCantidad() <= 0) {
+                throw new ValidacionException("La cantidad de cada producto debe ser mayor que cero.");
+            }
+
+            if (detalle.getPrecioUnitario() == null
+                    || detalle.getPrecioUnitario().compareTo(BigDecimal.ZERO) < 0) {
+                throw new ValidacionException("El precio de compra no puede ser nulo ni negativo.");
+            }
+        }
+    }
+
     @Transactional
     public void eliminar(Integer id) {
         compraRepository.deleteById(id);
