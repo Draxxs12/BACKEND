@@ -1,13 +1,13 @@
 package com.ferreteria.v1.services;
 
 import java.util.List;
+import java.math.BigDecimal;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-
+import com.ferreteria.v1.exceptions.ValidacionException;
 import com.ferreteria.v1.models.Caja;
 import com.ferreteria.v1.models.DetalleVenta;
 import com.ferreteria.v1.models.Inventario;
@@ -62,13 +62,18 @@ public class VentaService {
         if (venta.getEstado() == Venta.EstadoVenta.Anulada) {
             throw new RuntimeException("La venta ya está anulada.");
         }
+
         for (DetalleVenta detalle : detalleVentaRepository.findByVentaId(id)) {
             Producto producto = detalle.getProducto();
-            if (producto == null) continue;
+            if (producto == null) {
+                continue;
+            }
+
             Integer productoId = producto.getId();
             producto = productoRepository.buscarPorIdParaActualizar(productoId)
-                    .orElseThrow(() -> new RuntimeException("Producto no encontrado id=" + productoId));
-            int stockAntes   = producto.getStock();
+                    .orElse(producto);
+
+            int stockAntes = producto.getStock() == null ? 0 : producto.getStock();
             int stockDespues = stockAntes + detalle.getCantidad();
             producto.setStock(stockDespues);
             productoRepository.save(producto);
@@ -83,83 +88,109 @@ public class VentaService {
             mov.setMotivo("Anulación venta " + venta.getNumeroComprobante());
             inventarioRepository.save(mov);
         }
+
         venta.setEstado(Venta.EstadoVenta.Anulada);
         return ventaRepository.save(venta);
     }
 
     @Transactional
-public Venta registrarVenta(Venta venta, List<DetalleVenta> detalles, Usuario usuarioActual) {
-    venta.setUsuario(usuarioActual);
+    public Venta registrarVenta(Venta venta, List<DetalleVenta> detalles, Usuario usuarioActual) {
+        validarVenta(venta, detalles);
 
-    // Autogenera el número: serie F001 para Factura, B001 para Boleta
-    if (venta.getNumeroComprobante() == null || venta.getNumeroComprobante().isBlank()) {
-        String serie = venta.getTipoComprobante() == Venta.TipoComprobante.Factura ? "F001" : "B001";
-        contadorComprobanteRepository.reservarSiguiente(serie);
-        Long numero = contadorComprobanteRepository.obtenerNumeroReservado();
-        if (numero == null || numero <= 0) {
-            throw new IllegalStateException("No se pudo reservar el numero del comprobante.");
+        venta.setUsuario(usuarioActual);
+
+        // Autogenera el número: serie F001 para Factura, B001 para Boleta.
+        if (venta.getNumeroComprobante() == null || venta.getNumeroComprobante().isBlank()) {
+            String serie = venta.getTipoComprobante() == Venta.TipoComprobante.Factura ? "F001" : "B001";
+            contadorComprobanteRepository.reservarSiguiente(serie);
+            Long numero = contadorComprobanteRepository.obtenerNumeroReservado();
+            if (numero == null || numero <= 0) {
+                throw new IllegalStateException("No se pudo reservar el numero del comprobante.");
+            }
+
+            // Evita reutilizar números cuando el contador todavía no refleja ventas existentes.
+            long siguientePorVentas = ventaRepository.count() + 1;
+            numero = Math.max(numero, siguientePorVentas);
+            venta.setNumeroComprobante(serie + String.format("-%05d", numero));
         }
-        venta.setNumeroComprobante(serie + String.format("-%05d", numero));
+
+        Venta ventaGuardada = ventaRepository.save(venta);
+        double subtotalTotal = 0.0;
+
+        for (DetalleVenta detalle : detalles) {
+            detalle.setVenta(ventaGuardada);
+
+            Producto producto = productoRepository.buscarPorIdParaActualizar(
+                    detalle.getProducto().getId()
+            ).orElseThrow(() -> new RuntimeException(
+                    "Producto no encontrado id=" + detalle.getProducto().getId()
+            ));
+
+            int stockDisponible = producto.getStock() == null ? 0 : producto.getStock();
+            if (stockDisponible < detalle.getCantidad()) {
+                throw new RuntimeException(
+                        "Stock insuficiente para \"" + producto.getNombre() +
+                        "\". Disponible: " + stockDisponible +
+                        ", solicitado: " + detalle.getCantidad()
+                );
+            }
+
+            double subDetalle = detalle.getCantidad() * detalle.getPrecioUnitario();
+            detalle.setSubtotal(subDetalle);
+            subtotalTotal += subDetalle;
+            detalleVentaRepository.save(detalle);
+
+            int stockAntes = stockDisponible;
+            int stockDespues = stockAntes - detalle.getCantidad();
+            producto.setStock(stockDespues);
+            productoRepository.save(producto);
+
+            Inventario mov = new Inventario();
+            mov.setProducto(producto);
+            mov.setUsuario(usuarioActual);
+            mov.setTipo(Inventario.TipoMovimiento.Salida);
+            mov.setCantidad(detalle.getCantidad());
+            mov.setStockAntes(stockAntes);
+            mov.setStockDespues(stockDespues);
+            mov.setMotivo("Venta " + ventaGuardada.getNumeroComprobante());
+            inventarioRepository.save(mov);
+        }
+
+        double igv = subtotalTotal * 0.18;
+        ventaGuardada.setSubtotal(subtotalTotal);
+        ventaGuardada.setIgv(igv);
+        ventaGuardada.setTotal(subtotalTotal + igv);
+        Venta resultado = ventaRepository.save(ventaGuardada);
+
+        // Si hay una caja abierta, suma la venta a su total.
+        cajaRepository.findFirstByEstadoOrderByAperturaDesc(Caja.Estado.Abierta)
+                .ifPresent(caja -> {
+                    caja.setTotalVentas(caja.getTotalVentas().add(BigDecimal.valueOf(resultado.getTotal())));
+                    cajaRepository.save(caja);
+                });
+
+        return resultado;
     }
 
-    Venta ventaGuardada = ventaRepository.save(venta);
-    double subtotalTotal = 0.0;
-
-    for (DetalleVenta detalle : detalles) {
-        detalle.setVenta(ventaGuardada);
-
-        Producto producto = productoRepository.buscarPorIdParaActualizar(
-            detalle.getProducto().getId()
-        ).orElseThrow(() -> new RuntimeException(
-            "Producto no encontrado id=" + detalle.getProducto().getId()
-        ));
-
-        if (detalle.getCantidad() == null || detalle.getCantidad() <= 0) {
-            throw new IllegalArgumentException("La cantidad vendida debe ser mayor que cero.");
+    private void validarVenta(Venta venta, List<DetalleVenta> detalles) {
+        if (venta == null) {
+            throw new ValidacionException("Debes proporcionar los datos de la venta.");
+        }
+        if (detalles == null || detalles.isEmpty()) {
+            throw new ValidacionException("La venta debe contener al menos un producto.");
         }
 
-        if (producto.getStock() < detalle.getCantidad()) {
-            throw new RuntimeException(
-                "Stock insuficiente para \"" + producto.getNombre() +
-                "\". Disponible: " + producto.getStock() +
-                ", solicitado: " + detalle.getCantidad()
-            );
+        for (DetalleVenta detalle : detalles) {
+            if (detalle == null || detalle.getProducto() == null
+                    || detalle.getProducto().getId() == null) {
+                throw new ValidacionException("Debes seleccionar un producto válido para cada detalle.");
+            }
+            if (detalle.getCantidad() == null || detalle.getCantidad() <= 0) {
+                throw new ValidacionException("La cantidad vendida debe ser mayor que cero.");
+            }
+            if (detalle.getPrecioUnitario() == null || detalle.getPrecioUnitario() < 0) {
+                throw new ValidacionException("El precio unitario no puede ser nulo ni negativo.");
+            }
         }
-
-        double subDetalle = detalle.getCantidad() * detalle.getPrecioUnitario();
-        detalle.setSubtotal(subDetalle);
-        subtotalTotal += subDetalle;
-        detalleVentaRepository.save(detalle);
-
-        int stockAntes   = producto.getStock();
-        int stockDespues = stockAntes - detalle.getCantidad();
-        producto.setStock(stockDespues);
-        productoRepository.save(producto);
-
-        Inventario mov = new Inventario();
-        mov.setProducto(producto);
-        mov.setUsuario(usuarioActual);
-        mov.setTipo(Inventario.TipoMovimiento.Salida);
-        mov.setCantidad(detalle.getCantidad());
-        mov.setStockAntes(stockAntes);
-        mov.setStockDespues(stockDespues);
-        mov.setMotivo("Venta " + ventaGuardada.getNumeroComprobante());
-        inventarioRepository.save(mov);
     }
-
-    double igv = subtotalTotal * 0.18;
-    ventaGuardada.setSubtotal(subtotalTotal);
-    ventaGuardada.setIgv(igv);
-    ventaGuardada.setTotal(subtotalTotal + igv);
-    Venta resultado = ventaRepository.save(ventaGuardada);
-
-    // Si hay una caja abierta, suma la venta a su total
-    cajaRepository.findFirstByEstadoOrderByAperturaDesc(Caja.Estado.Abierta)
-        .ifPresent(caja -> {
-            caja.setTotalVentas(caja.getTotalVentas().add(BigDecimal.valueOf(resultado.getTotal())));
-            cajaRepository.save(caja);
-        });
-
-    return resultado;
-}
 }

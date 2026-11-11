@@ -1,5 +1,6 @@
 package com.ferreteria.v1.controllers;
 
+import com.ferreteria.v1.exceptions.ValidacionException;
 import com.ferreteria.v1.models.Categoria;
 import com.ferreteria.v1.repositories.CategoriaRepository;
 import com.ferreteria.v1.services.UsuarioActualService;
@@ -32,15 +33,23 @@ public class CategoriaController {
 
     @PostMapping
     public Categoria crear(@RequestBody Categoria categoria) {
+        validarNombre(categoria);
         categoria.setRegistradoPor(usuarioActual.nombreActual());
         return categoriaRepository.save(categoria);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Categoria> actualizar(@PathVariable Integer id, @RequestBody Categoria categoria) {
+        validarNombre(categoria);
         categoria.setId(id);
         categoria.setRegistradoPor(usuarioActual.nombreActual());
         return ResponseEntity.ok(categoriaRepository.save(categoria));
+    }
+
+    private void validarNombre(Categoria categoria) {
+        if (categoria == null || categoria.getNombre() == null || categoria.getNombre().isBlank()) {
+            throw new ValidacionException("El nombre de la categoría es obligatorio.");
+        }
     }
 
     @DeleteMapping("/{id}")

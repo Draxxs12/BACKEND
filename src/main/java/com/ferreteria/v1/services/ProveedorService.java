@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.ferreteria.v1.exceptions.ValidacionException;
 import com.ferreteria.v1.exceptions.Validador;
 import com.ferreteria.v1.models.Proveedor;
 import com.ferreteria.v1.repositories.ProveedorRepository;
@@ -31,13 +32,28 @@ public class ProveedorService {
     }
 
     public Proveedor guardar(Proveedor proveedor) {
-        Validador.ruc(proveedor.getRuc());
+        if (proveedor == null) {
+            throw new ValidacionException("Debes proporcionar los datos del proveedor.");
+        }
+
+        if (proveedor.getEmpresa() == null || proveedor.getEmpresa().isBlank()) {
+            throw new ValidacionException("El nombre de la empresa es obligatorio.");
+        }
+
+        if (proveedor.getRuc() != null && !proveedor.getRuc().isBlank()
+                && !proveedor.getRuc().matches("\\d{11}")) {
+            throw new ValidacionException("El RUC debe tener exactamente 11 dígitos numéricos.");
+        }
+
         Validador.email(proveedor.getEmail());
         proveedor.setRegistradoPor(usuarioActual.nombreActual());
         return proveedorRepository.save(proveedor);
     }
 
     public void eliminar(Integer id) {
-        proveedorRepository.deleteById(id);
+        proveedorRepository.findById(id).ifPresent(proveedor -> {
+            proveedor.setActivo(false);
+            proveedorRepository.save(proveedor);
+        });
     }
 }
