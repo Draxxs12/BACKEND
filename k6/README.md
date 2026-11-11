@@ -37,6 +37,14 @@ El token dura 4 h (el backend usa 8 h). Para la resistencia de 8 h, genera uno c
 
 `venta_pico.js`, `estres.js` y `resistencia.js` venden el mismo producto muchas veces: antes de correrlos sube su stock (`UPDATE productos SET stock = 1000000 WHERE id = 1;`) o se agotará y los rechazos contarán como errores.
 
+## Dataset reproducible de HU-S4-05
+
+El flujo `Rendimiento` prepara una base MySQL efímera con al menos 20 000 productos cuando ejecuta el escenario `carga` (programado o manual). El archivo `k6/seed_busqueda_20k.sql` agrega registros identificados por el prefijo `CI-PERF-`, con nombres distribuidos entre los términos de búsqueda del script. No debe ejecutarse contra producción.
+
+El workflow conserva como artefacto `explain_busqueda.txt`, que permite revisar el plan de ejecución de la búsqueda `LOWER(nombre) LIKE '%mar%'`. El repositorio usa actualmente `ContainingIgnoreCase`, que puede provocar un recorrido amplio de la tabla; el resultado de EXPLAIN y la medición real deben revisarse antes de decidir si conviene cambiar el índice o la estrategia de búsqueda.
+
+Ejecutar manualmente desde Actions → Rendimiento → Run workflow → escenario `carga`. El script `busqueda_productos.js` ejecuta 50 usuarios durante 2 minutos y propone p95 < 500 ms y tasa de errores < 1 %. Estos umbrales requieren aprobación del Product Owner.
+
 ## Verificación SQL de HU-S4-03 (después de `stock_concurrente.js`)
 Antes de ejecutar deja el producto con stock **exactamente 50** (`UPDATE productos SET stock = 50 WHERE id = 1;`). Después:
 
