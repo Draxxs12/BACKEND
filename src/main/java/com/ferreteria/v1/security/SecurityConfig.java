@@ -50,10 +50,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
+            // La API autentica con JWT enviado en Authorization, no con cookies de sesión.
+            // Por eso se excluyen las rutas API de CSRF sin desactivar la protección global.
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Health/readiness son probes operativas: solo exponen el estado agregado.
+                .requestMatchers("/actuator/health/**").permitAll()
                 .requestMatchers(
                     "/api/auth/login",
                     "/api/auth/verify-mfa",
@@ -102,7 +106,6 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(List.of("http://localhost:4200"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
-        // La aplicación envía el JWT en Authorization y no utiliza cookies de sesión.
         configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
