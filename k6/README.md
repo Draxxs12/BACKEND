@@ -9,7 +9,7 @@ Escenarios k6, mapeos WireMock y flujos de GitHub Actions del Sprint 4. Los umbr
 | `venta_pico.js` | Rampa de 5 a 100 usuarios en 10 s sobre `POST /api/ventas` | HU-S4-02 |
 | `stock_concurrente.js` | 100 ventas simultáneas contra stock 50 | HU-S4-03 |
 | `dashboard_volumen.js` | Lecturas que usa el dashboard con 50 000 ventas | HU-S4-04 |
-| `busqueda_productos.js` | Búsqueda por nombre con 50 usuarios | HU-S4-05 |
+| `busqueda_productos.js` | Búsqueda por nombre con 50 usuarios | HU-S4-05 |\n| `reportes_volumen.js` | Libro Mayor y Auditoría de Stock con 10 usuarios; p95 propuesto < 2 s | HU-S4-06 |
 | `estres.js` | Escalones de carga hasta el punto de quiebre | HU-S4-06, 08 |
 | `resistencia.js` | Carga constante de 8 h al 40 % de la capacidad | HU-S4-07 |
 | `generar_token.py` | Genera un JWT de administrador sin pasar por el correo MFA | todas |
@@ -37,7 +37,7 @@ El token dura 4 h (el backend usa 8 h). Para la resistencia de 8 h, genera uno c
 
 `venta_pico.js`, `estres.js` y `resistencia.js` venden el mismo producto muchas veces: antes de correrlos sube su stock (`UPDATE productos SET stock = 1000000 WHERE id = 1;`) o se agotará y los rechazos contarán como errores.
 
-## Verificación SQL de HU-S4-03 (después de `stock_concurrente.js`)
+## Ejecutar HU-S4-06 (reportes)\nEn GitHub Actions, abre **Rendimiento → Run workflow → escenario `reportes`**. El job usa MySQL efímero y un JWT de administrador; mide por separado `/api/reportes/libro-mayor` y `/api/reportes/stock` durante 2 minutos con 10 usuarios virtuales. Los umbrales iniciales son p95 < 2 s por endpoint y errores < 1 %. Para validar el comportamiento con volumen, carga antes un dataset representativo de ventas, compras y productos en un entorno aislado; el escenario no crea datos ni modifica registros. Conserva el artefacto `reportes-rendimiento` como evidencia.\n\n## Verificación SQL de HU-S4-03 (después de `stock_concurrente.js`)
 Antes de ejecutar deja el producto con stock **exactamente 50** (`UPDATE productos SET stock = 50 WHERE id = 1;`). Después:
 
 ```sql
