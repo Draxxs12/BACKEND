@@ -6,7 +6,10 @@
       "name": "V1Application",
       "request": "launch",
       "mainClass": "V1Application",
-      "projectName": "v1"
+      "projectName": "v1",
+      "env": {
+        "JWT_SECRET": "${env:JWT_SECRET}"
+      }
     },
     {
       "type": "java",
@@ -14,7 +17,10 @@
       "request": "launch",
       "mainClass": "com.ferreteria.v1.V1Application",
       "projectName": "v1",
-      "args": "--spring.profiles.active=local"
+      "args": "--spring.profiles.active=local",
+      "env": {
+        "JWT_SECRET": "${env:JWT_SECRET}"
+      }
     }
   ]
 }
