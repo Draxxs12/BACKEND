@@ -13,12 +13,21 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(properties = "jwt.secret=QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=")
+@SpringBootTest(properties = {
+        "jwt.secret=QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=",
+        "management.endpoint.health.probes.enabled=true"
+})
 @AutoConfigureMockMvc
 class SecurityConfigAuthorizationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Test
+    void readinessProbeIsPublicForInfrastructureChecks() throws Exception {
+        mockMvc.perform(get("/actuator/health/readiness"))
+                .andExpect(status().isOk());
+    }
 
     @Test
     @WithMockUser(roles = "RECEPCIONISTA")

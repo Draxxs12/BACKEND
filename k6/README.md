@@ -16,7 +16,7 @@ Escenarios k6, mapeos WireMock y flujos de GitHub Actions del Sprint 4. Los umbr
 | `../wiremock/mappings/` | Groq y Gmail lentos (30 s) o con error 500 | HU-S4-08 |
 
 ## Token (la seguridad por roles lo exige)
-`SecurityConfig` restringe las rutas por rol y exige autenticación hasta en `/actuator/**`. Los escenarios mezclan ventas, productos, compras y reportes, así que el token debe ser de un usuario **Administrador activo**.
+`SecurityConfig` restringe las rutas de negocio por rol. Los endpoints `/actuator/health/**` quedan públicos para las sondas de infraestructura; las métricas y demás endpoints de Actuator siguen protegidos. Los escenarios mezclan ventas, productos, compras y reportes, así que el token debe ser de un usuario **Administrador activo**.
 
 El login real pide un código enviado por correo. Para las pruebas se genera el token con la misma clave del backend:
 

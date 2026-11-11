@@ -13,8 +13,8 @@ export const options = {
 };
 
 export default function () {
-  // SecurityConfig exige autenticación también para /actuator/**, por eso se envía el token.
-  const salud = http.get(`${BASE_URL}/actuator/health`, cabeceras());
+  // El endpoint de salud es público para permitir probes de infraestructura.
+  const salud = http.get(`${BASE_URL}/actuator/health`);
   check(salud, { 'health 200': (r) => r.status === 200 });
 
   const productos = http.get(`${BASE_URL}/api/productos`, cabeceras());
