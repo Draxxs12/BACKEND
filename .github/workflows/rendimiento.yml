@@ -11,7 +11,7 @@ on:
         required: true
         default: carga
         type: choice
-        options: [humo, carga, pico, estres]
+        options: [humo, carga, pico, estres, reportes]
 
 jobs:
   rendimiento:
@@ -99,7 +99,7 @@ jobs:
             humo)   FILE=k6/humo.js ;;
             carga)  FILE=k6/busqueda_productos.js ;;
             pico)   FILE=k6/venta_pico.js ;;
-            estres) FILE=k6/estres.js ;;
+            estres) FILE=k6/estres.js ;;\n            reportes) FILE=k6/reportes_volumen.js ;;
           esac
           k6 run --summary-export=resumen-k6.json "$FILE"
       - uses: actions/upload-artifact@v4
