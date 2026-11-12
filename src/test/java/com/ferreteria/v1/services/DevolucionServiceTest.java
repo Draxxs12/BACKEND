@@ -95,7 +95,7 @@ class DevolucionServiceTest {
     void registrar_devolucionValidaAumentaStockCalculaMontoYRegistraEntrada() {
         Producto p = producto(5, 10);
         Venta v = venta(1);
-        when(ventaRepository.findById(1)).thenReturn(Optional.of(v));
+        when(ventaRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(v));
         when(productoRepository.buscarPorIdParaActualizar(5)).thenReturn(Optional.of(p));
         when(devolucionRepository.count()).thenReturn(0L);
         when(devolucionRepository.save(any(Devolucion.class))).thenAnswer(i -> i.getArgument(0));
@@ -124,8 +124,8 @@ class DevolucionServiceTest {
     void registrar_sinTipoDeReembolsoUsaEfectivo() {
         Producto p = producto(5, 10);
         Venta v = venta(1);
-        when(ventaRepository.findById(1)).thenReturn(Optional.of(v));
-        when(productoRepository.findById(5)).thenReturn(Optional.of(p));
+        when(ventaRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(v));
+        when(productoRepository.buscarPorIdParaActualizar(5)).thenReturn(Optional.of(p));
         when(devolucionRepository.count()).thenReturn(0L);
         when(devolucionRepository.save(any(Devolucion.class))).thenAnswer(i -> i.getArgument(0));
         when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(v, p, 5)));
@@ -140,8 +140,8 @@ class DevolucionServiceTest {
     void registrar_elNumeroDeNotaEsCorrelativo() {
         Producto p = producto(5, 10);
         Venta v = venta(1);
-        when(ventaRepository.findById(1)).thenReturn(Optional.of(v));
-        when(productoRepository.findById(5)).thenReturn(Optional.of(p));
+        when(ventaRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(v));
+        when(productoRepository.buscarPorIdParaActualizar(5)).thenReturn(Optional.of(p));
         when(devolucionRepository.count()).thenReturn(4L);
         when(devolucionRepository.save(any(Devolucion.class))).thenAnswer(i -> i.getArgument(0));
         when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(v, p, 5)));
@@ -157,8 +157,8 @@ class DevolucionServiceTest {
     void registrar_rechazaCantidadNegativaOCero() {
         Producto p = producto(5, 10);
         Venta v = venta(1);
-        when(ventaRepository.findById(1)).thenReturn(Optional.of(v));
-        when(productoRepository.findById(5)).thenReturn(Optional.of(p));
+        when(ventaRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(v));
+        when(productoRepository.buscarPorIdParaActualizar(5)).thenReturn(Optional.of(p));
         when(devolucionRepository.count()).thenReturn(0L);
         when(devolucionRepository.save(any(Devolucion.class))).thenAnswer(i -> i.getArgument(0));
         when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(v, p, 5)));
@@ -176,8 +176,8 @@ class DevolucionServiceTest {
     void registrar_rechazaDevolverMasDeLoVendido() {
         Producto p = producto(5, 10);
         Venta v = venta(1);
-        when(ventaRepository.findById(1)).thenReturn(Optional.of(v));
-        when(productoRepository.findById(5)).thenReturn(Optional.of(p));
+        when(ventaRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(v));
+        when(productoRepository.buscarPorIdParaActualizar(5)).thenReturn(Optional.of(p));
         when(devolucionRepository.count()).thenReturn(0L);
         when(devolucionRepository.save(any(Devolucion.class))).thenAnswer(i -> i.getArgument(0));
         when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(v, p, 2)));
