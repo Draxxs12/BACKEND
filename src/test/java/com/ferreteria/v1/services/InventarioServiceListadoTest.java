@@ -97,7 +97,7 @@ class InventarioServiceListadoTest {
     @Test
     void ajustarStock_alMismoValorRegistraCantidadCero_valorLimite() {
         Producto p = producto(1, 10);
-        when(productoRepository.findById(1)).thenReturn(Optional.of(p));
+        when(productoRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(p));
         when(inventarioRepository.save(any(Inventario.class))).thenAnswer(i -> i.getArgument(0));
 
         Inventario mov = service.ajustarStock(1, 10, "Conteo coincide", new Usuario());
@@ -111,7 +111,7 @@ class InventarioServiceListadoTest {
     @Test
     void ajustarStock_unaUnidadMenosRegistraCantidadUno_valorLimite() {
         Producto p = producto(1, 10);
-        when(productoRepository.findById(1)).thenReturn(Optional.of(p));
+        when(productoRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(p));
         when(inventarioRepository.save(any(Inventario.class))).thenAnswer(i -> i.getArgument(0));
 
         Inventario mov = service.ajustarStock(1, 9, "Rotura", new Usuario());
@@ -123,7 +123,7 @@ class InventarioServiceListadoTest {
     @Test
     void ajustarStock_menosUnoSeRechaza_valorLimite() {
         Producto p = producto(1, 10);
-        when(productoRepository.findById(1)).thenReturn(Optional.of(p));
+        when(productoRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(p));
 
         assertThrows(ValidacionException.class, () -> service.ajustarStock(1, -1, "x", new Usuario()));
 
@@ -144,7 +144,7 @@ class InventarioServiceListadoTest {
     void ajustarStock_noTocaElStockDeOtrosProductos() {
         Producto objetivo = producto(1, 10);
         Producto otro = producto(2, 50);
-        when(productoRepository.findById(1)).thenReturn(Optional.of(objetivo));
+        when(productoRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(objetivo));
         when(inventarioRepository.save(any(Inventario.class))).thenAnswer(i -> i.getArgument(0));
 
         service.ajustarStock(1, 25, "Conteo", new Usuario());
@@ -157,7 +157,7 @@ class InventarioServiceListadoTest {
     @Test
     void ajustarStock_elMotivoEscritoSeConservaTalCual() {
         Producto p = producto(1, 10);
-        when(productoRepository.findById(1)).thenReturn(Optional.of(p));
+        when(productoRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(p));
         when(inventarioRepository.save(any(Inventario.class))).thenAnswer(i -> i.getArgument(0));
 
         Inventario mov = service.ajustarStock(1, 12, "Inventario anual 2026", new Usuario());
