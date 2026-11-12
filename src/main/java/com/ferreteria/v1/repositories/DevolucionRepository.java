@@ -13,7 +13,7 @@ import com.ferreteria.v1.models.Devolucion;
 public interface DevolucionRepository extends JpaRepository<Devolucion, Integer> {
     List<Devolucion> findAllByOrderByCreatedAtDesc();
 
-    @Query("SELECT COALESCE(SUM(d.cantidad), 0) FROM DetalleDevolucion d "
+    @Query("SELECT SUM(d.cantidad) FROM DetalleDevolucion d "
             + "WHERE d.devolucion.venta.id = :ventaId AND d.producto.id = :productoId")
     Long cantidadDevueltaPorVentaYProducto(
             @Param("ventaId") Integer ventaId,
