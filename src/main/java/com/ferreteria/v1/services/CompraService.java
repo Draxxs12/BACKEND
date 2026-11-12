@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ferreteria.v1.exceptions.RecursoNoEncontradoException;
 import com.ferreteria.v1.exceptions.ValidacionException;
 import com.ferreteria.v1.models.Compra;
 import com.ferreteria.v1.models.Compra.Estado;
@@ -43,8 +44,16 @@ public class CompraService {
 
         Estado estadoAnterior = null;
         if (!esNueva) {
-            Compra anterior = compraRepository.buscarPorIdParaActualizar(compra.getId()).orElse(null);
-            if (anterior != null) estadoAnterior = anterior.getEstado();
+            Compra anterior = compraRepository.buscarPorIdParaActualizar(compra.getId())
+                    .orElseThrow(() -> new RecursoNoEncontradoException(
+                            "No se encontró la compra con id " + compra.getId() + "."));
+            estadoAnterior = anterior.getEstado();
+
+            if (estadoAnterior == Estado.Recibida) {
+                throw new ValidacionException(
+                        "No se puede modificar una compra recibida porque ya afectó el stock. "
+                        + "Registra un movimiento de inventario para corregir existencias.");
+            }
         }
 
         boolean generarNumeroOrden = esNueva
@@ -142,6 +151,16 @@ public class CompraService {
 
     @Transactional
     public void eliminar(Integer id) {
-        compraRepository.deleteById(id);
+        Compra compra = compraRepository.buscarPorIdParaActualizar(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No se encontró la compra con id " + id + "."));
+
+        if (compra.getEstado() == Estado.Recibida) {
+            throw new ValidacionException(
+                    "No se puede eliminar una compra recibida porque ya afectó el stock. "
+                    + "Registra un movimiento de inventario para corregir existencias.");
+        }
+
+        compraRepository.delete(compra);
     }
 }
