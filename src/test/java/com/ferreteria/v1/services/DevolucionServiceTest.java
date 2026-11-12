@@ -2,6 +2,7 @@ package com.ferreteria.v1.services;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 import java.math.BigDecimal;
@@ -40,8 +41,13 @@ class DevolucionServiceTest {
     @Mock VentaRepository ventaRepository;
     @Mock ProductoRepository productoRepository;
     @Mock InventarioRepository inventarioRepository;
-    @Mock DetalleVentaRepository detalleVentaRepository; // se usará al corregir el defecto de cantidades
+    @Mock DetalleVentaRepository detalleVentaRepository;
     @InjectMocks DevolucionService service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void prepararAcumulado() {
+        when(devolucionRepository.cantidadDevueltaPorVentaYProducto(anyInt(), anyInt())).thenReturn(0L);
+    }
 
     private Producto producto(int id, int stock) {
         Producto p = new Producto();
@@ -75,7 +81,7 @@ class DevolucionServiceTest {
     // ───────────── HU-S2-13 ─────────────
     @Test
     void registrar_ventaInexistenteLanzaExcepcionYNoTocaNada() {
-        when(ventaRepository.findById(999)).thenReturn(Optional.empty());
+        when(ventaRepository.buscarPorIdParaActualizar(999)).thenReturn(Optional.empty());
 
         assertThrows(RuntimeException.class, () ->
                 service.registrar(999, "Defecto", null, new ArrayList<>(), new Usuario()));
@@ -90,7 +96,7 @@ class DevolucionServiceTest {
         Producto p = producto(5, 10);
         Venta v = venta(1);
         when(ventaRepository.findById(1)).thenReturn(Optional.of(v));
-        when(productoRepository.findById(5)).thenReturn(Optional.of(p));
+        when(productoRepository.buscarPorIdParaActualizar(5)).thenReturn(Optional.of(p));
         when(devolucionRepository.count()).thenReturn(0L);
         when(devolucionRepository.save(any(Devolucion.class))).thenAnswer(i -> i.getArgument(0));
         when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(v, p, 5)));
@@ -146,10 +152,7 @@ class DevolucionServiceTest {
         assertEquals("NC-00005", dev.getNumeroNota());
     }
 
-    /**
-     * INCIDENCIA ESPERADA (ROJO): hoy una cantidad negativa se acepta y RESTA stock
-     * (10 + (-3) = 7) y registra una "Entrada" negativa. Debe rechazarse.
-     */
+    /** Valida que una devolución nunca tenga cantidades cero o negativas. */
     @Test
     void registrar_rechazaCantidadNegativaOCero() {
         Producto p = producto(5, 10);
@@ -168,11 +171,7 @@ class DevolucionServiceTest {
         assertEquals(10, p.getStock(), "el stock no debe cambiar");
     }
 
-    /**
-     * INCIDENCIA ESPERADA (ROJO): se vendieron 2 unidades y se intenta devolver 3.
-     * Hoy se acepta y el stock sube de más. Para corregirlo, el servicio debe consultar
-     * detalleVentaRepository.findByVentaId(...) y comparar con lo vendido.
-     */
+    /** Valida que la cantidad solicitada no supere lo vendido. */
     @Test
     void registrar_rechazaDevolverMasDeLoVendido() {
         Producto p = producto(5, 10);
@@ -187,6 +186,37 @@ class DevolucionServiceTest {
                 new ArrayList<>(List.of(linea(p, 3, "10.00"))), new Usuario()));
 
         assertEquals(10, p.getStock(), "el stock no debe cambiar");
+    }
+
+    @Test
+    void registrar_rechazaDevolucionesAcumuladasPorEncimaDeLoVendido() {
+        Producto p = producto(5, 12);
+        Venta v = venta(1);
+        when(ventaRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(v));
+        when(productoRepository.buscarPorIdParaActualizar(5)).thenReturn(Optional.of(p));
+        when(devolucionRepository.cantidadDevueltaPorVentaYProducto(1, 5)).thenReturn(2L);
+        when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(vendido(v, p, 5)));
+
+        assertThrows(com.ferreteria.v1.exceptions.ValidacionException.class, () ->
+                service.registrar(1, "Segundo intento", null,
+                        new ArrayList<>(List.of(linea(p, 4, "10.00"))), new Usuario()));
+
+        assertEquals(12, p.getStock());
+        verify(productoRepository, never()).save(any());
+        verify(devolucionRepository, never()).save(any(Devolucion.class));
+    }
+
+    @Test
+    void registrar_rechazaDevolucionDeUnaVentaAnulada() {
+        Venta v = venta(1);
+        v.setEstado(Venta.EstadoVenta.Anulada);
+        when(ventaRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(v));
+
+        assertThrows(com.ferreteria.v1.exceptions.ValidacionException.class, () ->
+                service.registrar(1, "Venta anulada", null, new ArrayList<>(), new Usuario()));
+
+        verify(productoRepository, never()).save(any());
+        verify(devolucionRepository, never()).save(any(Devolucion.class));
     }
 
     // ───────────── HU-S2-14 ─────────────
