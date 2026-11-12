@@ -8,6 +8,7 @@ export const options = {
   vus: Number(__ENV.VUS || 10),
   duration: __ENV.DURACION || '2m',
   thresholds: {
+    checks: ['rate>0.99'],
     http_req_failed: ['rate<0.01'],
     'http_req_duration{endpoint:libro_mayor}': ['p(95)<2000'],
     'http_req_duration{endpoint:auditoria_stock}': ['p(95)<2000'],
