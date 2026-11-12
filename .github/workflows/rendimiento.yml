@@ -135,4 +135,5 @@ jobs:
           name: reportes-rendimiento
           path: |
             resumen-k6.json
+            explain_busqueda.txt
             backend.log
