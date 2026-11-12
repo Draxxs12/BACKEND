@@ -236,7 +236,7 @@ class VentaServiceTest {
         v.setId(1);
         v.setNumeroComprobante("B001-00001");
         DetalleVenta d = linea(p, 2, 10.0);
-        when(ventaRepository.findById(1)).thenReturn(Optional.of(v));
+        when(ventaRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(v));
         when(detalleVentaRepository.findByVentaId(1)).thenReturn(List.of(d));
 
         Venta r = service.anular(1, new Usuario());
@@ -262,7 +262,7 @@ class VentaServiceTest {
 
     @Test
     void anular_ventaInexistenteLanzaExcepcion() {
-        when(ventaRepository.findById(404)).thenReturn(Optional.empty());
+        when(ventaRepository.buscarPorIdParaActualizar(404)).thenReturn(Optional.empty());
         assertThrows(RuntimeException.class, () -> service.anular(404, new Usuario()));
     }
 
