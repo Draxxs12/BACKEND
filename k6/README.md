@@ -49,7 +49,7 @@ SELECT COUNT(*) FROM inventario WHERE producto_id = 1 AND tipo = 'Salida';     -
 `VentaController` convierte **cualquier** `RuntimeException` en HTTP 400. Por eso el script cuenta como "rechazo" tanto el stock insuficiente como un posible choque de número de comprobante (`numero_comprobante` es único) o un tiempo de espera del bloqueo. Si `ventas_confirmadas` no llega a 50 aunque el stock alcanzaba, el árbitro es el SQL de arriba y el registro del backend.
 
 ## Lo que falta decidir o construir
-- **Correo simulado (HU-S4-01 y 08):** el login envía el correo de forma síncrona y `EmailService` no permite cambiar la URL de Gmail. Para `login_carga.js` hace falta un `EmailService` falso en un perfil de pruebas; el mapeo `gmail-envio-lento.json` queda listo para cuando exista.
+- **Correo simulado (HU-S4-01 y 08):** `EmailService` ahora depende de `CodigoEmailSender`. En producción se usa `GmailCodigoEmailSender`; al activar `SPRING_PROFILES_ACTIVE=test` se carga `TestCodigoEmailSender`, que simula la entrega sin contactar Gmail ni registrar códigos MFA. Para ejecutar `login_carga.js`, inicia el backend con ese perfil y define `EMAIL` y `PASSWORD` de un usuario administrador de la base de pruebas. El escenario solo mide la respuesta del login; no valida la recepción real del correo.
 - **Groq:** `ia.api.url` sí es configurable: apúntalo a WireMock (`http://localhost:8089/openai/v1/chat/completions`).
 - **Resistencia de 8 h:** los ejecutores gratuitos de GitHub limitan cada job a 6 h; ejecútala en una máquina dedicada.
 - **SonarCloud:** reemplaza `TU_ORGANIZACION` y `TU_PROYECTO_BACKEND` en `sonar-project.properties` y agrega el paso de análisis cuando tengas el `SONAR_TOKEN`.
