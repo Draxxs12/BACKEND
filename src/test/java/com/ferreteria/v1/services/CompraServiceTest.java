@@ -40,7 +40,11 @@ class CompraServiceTest {
     @BeforeEach
     void preparar() {
         when(compraRepository.save(any(Compra.class))).thenAnswer(i -> i.getArgument(0));
-        when(compraRepository.count()).thenReturn(0L);
+        when(compraRepository.saveAndFlush(any(Compra.class))).thenAnswer(i -> {
+            Compra compra = i.getArgument(0);
+            compra.setId(1);
+            return compra;
+        });
     }
 
     private Producto producto(int id, int stock) {
@@ -75,11 +79,16 @@ class CompraServiceTest {
     }
 
     @Test
-    void guardar_generaElNumeroDeOrdenCorrelativo() {
-        when(compraRepository.count()).thenReturn(2L);
+    void guardar_generaElNumeroDeOrdenUsandoElIdPersistido() {
+        when(compraRepository.saveAndFlush(any(Compra.class))).thenAnswer(i -> {
+            Compra compra = i.getArgument(0);
+            compra.setId(42);
+            return compra;
+        });
         Producto p = producto(5, 10);
         Compra r = service.guardar(compra(Compra.Estado.Pendiente, p, 1, "10.00"));
-        assertEquals("OC-00003", r.getNumeroOrden());
+        assertEquals("OC-00042", r.getNumeroOrden());
+        verify(compraRepository, never()).count();
     }
 
     // ───────────── CP-248: stock final = S + Q ─────────────
