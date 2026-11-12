@@ -9,7 +9,8 @@ Escenarios k6, mapeos WireMock y flujos de GitHub Actions del Sprint 4. Los umbr
 | `venta_pico.js` | Rampa de 5 a 100 usuarios en 10 s sobre `POST /api/ventas` | HU-S4-02 |
 | `stock_concurrente.js` | 100 ventas simultáneas contra stock 50 | HU-S4-03 |
 | `dashboard_volumen.js` | Lecturas que usa el dashboard con 50 000 ventas | HU-S4-04 |
-| `busqueda_productos.js` | Búsqueda por nombre con 50 usuarios | HU-S4-05 |\n| `reportes_volumen.js` | Libro Mayor y Auditoría de Stock con 10 usuarios; p95 propuesto < 2 s | HU-S4-06 |
+| `busqueda_productos.js` | Búsqueda por nombre con 50 usuarios | HU-S4-05 |
+| `reportes_volumen.js` | Libro Mayor y Auditoría de Stock con 10 usuarios; p95 propuesto < 2 s | HU-S4-06 |
 | `estres.js` | Escalones de carga hasta el punto de quiebre | HU-S4-06, 08 |
 | `resistencia.js` | Carga constante de 8 h al 40 % de la capacidad | HU-S4-07 |
 | `generar_token.py` | Genera un JWT de administrador sin pasar por el correo MFA | todas |
