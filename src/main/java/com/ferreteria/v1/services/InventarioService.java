@@ -38,7 +38,7 @@ public class InventarioService {
         }
         Validador.noNegativo(nuevoStock, "nuevo stock");
 
-        Producto producto = productoRepository.findById(productoId)
+        Producto producto = productoRepository.buscarPorIdParaActualizar(productoId)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado id=" + productoId));
 
         int stockAntes = producto.getStock();

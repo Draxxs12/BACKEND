@@ -39,7 +39,7 @@ class InventarioServiceTest {
     }
 
     private Inventario ajustar(Producto p, int nuevoStock, String motivo) {
-        when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        when(productoRepository.buscarPorIdParaActualizar(p.getId())).thenReturn(Optional.of(p));
         when(inventarioRepository.save(any(Inventario.class))).thenAnswer(i -> i.getArgument(0));
         return service.ajustarStock(p.getId(), nuevoStock, motivo, new Usuario());
     }
@@ -90,7 +90,7 @@ class InventarioServiceTest {
 
     @Test
     void ajustarStock_productoInexistenteLanzaExcepcionYNoGuardaNada() {
-        when(productoRepository.findById(999)).thenReturn(Optional.empty());
+        when(productoRepository.buscarPorIdParaActualizar(999)).thenReturn(Optional.empty());
 
         assertThrows(RuntimeException.class,
                 () -> service.ajustarStock(999, 10, "x", new Usuario()));
@@ -104,7 +104,7 @@ class InventarioServiceTest {
     @Test
     void ajustarStock_rechazaUnNuevoStockNegativo() {
         Producto p = producto(1, 10);
-        when(productoRepository.findById(1)).thenReturn(Optional.of(p));
+        when(productoRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(p));
 
         assertThrows(RuntimeException.class,
                 () -> service.ajustarStock(1, -5, "Error de digitación", new Usuario()));
@@ -117,7 +117,7 @@ class InventarioServiceTest {
     void ajustarStock_elMovimientoGuardadoTieneProductoYUsuario() {
         Producto p = producto(1, 10);
         Usuario u = new Usuario();
-        when(productoRepository.findById(1)).thenReturn(Optional.of(p));
+        when(productoRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(p));
         when(inventarioRepository.save(any(Inventario.class))).thenAnswer(i -> i.getArgument(0));
 
         service.ajustarStock(1, 15, "Reposición", u);
