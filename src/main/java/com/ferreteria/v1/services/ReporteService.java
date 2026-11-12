@@ -12,102 +12,103 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.ferreteria.v1.models.Compra;
-import com.ferreteria.v1.models.Producto;
-import com.ferreteria.v1.models.Venta;
 import com.ferreteria.v1.repositories.CompraRepository;
 import com.ferreteria.v1.repositories.ProductoRepository;
 import com.ferreteria.v1.repositories.VentaRepository;
+import com.ferreteria.v1.repositories.projections.CompraReporteProjection;
+import com.ferreteria.v1.repositories.projections.StockReporteProjection;
+import com.ferreteria.v1.repositories.projections.VentaReporteProjection;
 
 @Service
 public class ReporteService {
 
-    @Autowired private VentaRepository    ventaRepository;
-    @Autowired private CompraRepository   compraRepository;
+    @Autowired private VentaRepository ventaRepository;
+    @Autowired private CompraRepository compraRepository;
     @Autowired private ProductoRepository productoRepository;
 
-    /** Libro Mayor Financiero: ingresos por ventas, egresos por compras, CxP pendientes. */
+    /** Libro Mayor Financiero: proyecta solo las columnas utilizadas por el reporte. */
     public Map<String, Object> libroMayor(LocalDate desde, LocalDate hasta) {
         if (desde != null && hasta != null && desde.isAfter(hasta)) {
             throw new IllegalArgumentException("La fecha inicial no puede ser posterior a la fecha final.");
         }
         LocalDateTime inicio = desde == null ? null : desde.atStartOfDay();
         LocalDateTime finExclusivo = hasta == null ? null : hasta.plusDays(1).atStartOfDay();
-        Map<String, Object> r = new LinkedHashMap<>();
+        Map<String, Object> resultado = new LinkedHashMap<>();
 
         double ingresos = 0.0;
         List<Map<String, Object>> filasVentas = new ArrayList<>();
-        for (Venta v : ventaRepository.buscarParaLibroMayor(inicio, finExclusivo)) {
-            if (v.getCreatedAt() == null) continue;
-            LocalDate f = v.getCreatedAt().toLocalDate();
-            if (v.getEstado() == Venta.EstadoVenta.Completada) {
-                ingresos += v.getTotal() != null ? v.getTotal() : 0.0;
-                Map<String, Object> fila = new LinkedHashMap<>();
-                fila.put("fecha", f.toString());
-                fila.put("comprobante", v.getNumeroComprobante());
-                fila.put("cliente", v.getCliente() != null ? v.getCliente().getNombre() : "Cliente General");
-                fila.put("total", v.getTotal());
-                filasVentas.add(fila);
-            }
+        for (VentaReporteProjection venta : ventaRepository.buscarFilasParaLibroMayor(inicio, finExclusivo)) {
+            if (venta.getFecha() == null) continue;
+            double total = venta.getTotal() != null ? venta.getTotal() : 0.0;
+            ingresos += total;
+            Map<String, Object> fila = new LinkedHashMap<>();
+            fila.put("fecha", venta.getFecha().toLocalDate().toString());
+            fila.put("comprobante", venta.getComprobante());
+            fila.put("cliente", venta.getCliente() != null ? venta.getCliente() : "Cliente General");
+            fila.put("total", venta.getTotal());
+            filasVentas.add(fila);
         }
 
         double egresos = 0.0;
         double cuentasPorPagar = 0.0;
         List<Map<String, Object>> filasCompras = new ArrayList<>();
-        for (Compra c : compraRepository.buscarParaLibroMayor(inicio, finExclusivo)) {
-            if (c.getCreatedAt() == null) continue;
-            LocalDate f = c.getCreatedAt().toLocalDate();
-            double total = c.getTotal() != null ? c.getTotal().doubleValue() : 0.0;
-            if (c.getEstado() == Compra.Estado.Recibida) {
+        for (CompraReporteProjection compra : compraRepository.buscarFilasParaLibroMayor(inicio, finExclusivo)) {
+            if (compra.getFecha() == null) continue;
+            BigDecimal importe = compra.getTotal() != null ? compra.getTotal() : BigDecimal.ZERO;
+            double total = importe.doubleValue();
+            if (compra.getEstado() == Compra.Estado.Recibida) {
                 egresos += total;
-            } else if (c.getEstado() == Compra.Estado.Pendiente) {
+            } else if (compra.getEstado() == Compra.Estado.Pendiente) {
                 cuentasPorPagar += total;
             }
             Map<String, Object> fila = new LinkedHashMap<>();
-            fila.put("fecha", f.toString());
-            fila.put("orden", c.getNumeroOrden());
-            fila.put("proveedor", c.getProveedor() != null ? c.getProveedor().getEmpresa() : "—");
-            fila.put("estado", c.getEstado().name());
+            fila.put("fecha", compra.getFecha().toLocalDate().toString());
+            fila.put("orden", compra.getOrden());
+            fila.put("proveedor", compra.getProveedor() != null ? compra.getProveedor() : "—");
+            fila.put("estado", compra.getEstado() != null ? compra.getEstado().name() : "");
             fila.put("total", total);
             filasCompras.add(fila);
         }
 
-        r.put("desde", desde != null ? desde.toString() : null);
-        r.put("hasta", hasta != null ? hasta.toString() : null);
-        r.put("totalIngresos", redondear(ingresos));
-        r.put("totalEgresos", redondear(egresos));
-        r.put("cuentasPorPagar", redondear(cuentasPorPagar));
-        r.put("utilidadBruta", redondear(ingresos - egresos));
-        r.put("ventas", filasVentas);
-        r.put("compras", filasCompras);
-        return r;
+        resultado.put("desde", desde != null ? desde.toString() : null);
+        resultado.put("hasta", hasta != null ? hasta.toString() : null);
+        resultado.put("totalIngresos", redondear(ingresos));
+        resultado.put("totalEgresos", redondear(egresos));
+        resultado.put("cuentasPorPagar", redondear(cuentasPorPagar));
+        resultado.put("utilidadBruta", redondear(ingresos - egresos));
+        resultado.put("ventas", filasVentas);
+        resultado.put("compras", filasCompras);
+        return resultado;
     }
 
-    /** Auditoría de Almacén: stock exacto del momento y capital almacenado. */
+    /** Auditoría de almacén: consulta únicamente las columnas necesarias y la categoría. */
     public Map<String, Object> auditoriaStock() {
-        Map<String, Object> r = new LinkedHashMap<>();
+        Map<String, Object> resultado = new LinkedHashMap<>();
         List<Map<String, Object>> filas = new ArrayList<>();
         double capital = 0.0;
-        for (Producto p : productoRepository.findByActivoTrue()) {
-            double valor = (p.getStock() != null ? p.getStock() : 0)
-                    * (p.getPrecioCompra() != null ? p.getPrecioCompra() : 0.0);
+        for (StockReporteProjection producto : productoRepository.buscarFilasParaAuditoriaStock()) {
+            double stock = producto.getStock() != null ? producto.getStock() : 0;
+            double precioCompra = producto.getPrecioCompra() != null ? producto.getPrecioCompra() : 0.0;
+            double valor = stock * precioCompra;
             capital += valor;
+
             Map<String, Object> fila = new LinkedHashMap<>();
-            fila.put("codigo", p.getCodigo());
-            fila.put("nombre", p.getNombre());
-            fila.put("categoria", p.getCategoria() != null ? p.getCategoria().getNombre() : "Sin categoría");
-            fila.put("stock", p.getStock());
-            fila.put("stockMinimo", p.getStockMinimo());
-            fila.put("precioCompra", p.getPrecioCompra());
+            fila.put("codigo", producto.getCodigo());
+            fila.put("nombre", producto.getNombre());
+            fila.put("categoria", producto.getCategoria() != null ? producto.getCategoria() : "Sin categoría");
+            fila.put("stock", producto.getStock());
+            fila.put("stockMinimo", producto.getStockMinimo());
+            fila.put("precioCompra", producto.getPrecioCompra());
             fila.put("valorStock", redondear(valor));
             filas.add(fila);
         }
-        r.put("capitalAlmacenado", redondear(capital));
-        r.put("totalProductos", filas.size());
-        r.put("productos", filas);
-        return r;
+        resultado.put("capitalAlmacenado", redondear(capital));
+        resultado.put("totalProductos", filas.size());
+        resultado.put("productos", filas);
+        return resultado;
     }
 
-    private double redondear(double v) {
-        return Math.round(v * 100.0) / 100.0;
+    private double redondear(double valor) {
+        return Math.round(valor * 100.0) / 100.0;
     }
 }
