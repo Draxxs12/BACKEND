@@ -125,7 +125,9 @@ public class DevolucionService {
 
         for (Map.Entry<Integer, Integer> e : aDevolver.entrySet()) {
             int max = vendido.getOrDefault(e.getKey(), 0);
-            long yaDevuelto = devolucionRepository.cantidadDevueltaPorVentaYProducto(ventaId, e.getKey());
+            Long cantidadRegistrada = devolucionRepository
+                    .cantidadDevueltaPorVentaYProducto(ventaId, e.getKey());
+            long yaDevuelto = cantidadRegistrada == null ? 0L : cantidadRegistrada;
             long totalSolicitado = yaDevuelto + e.getValue();
             if (max == 0 || totalSolicitado > max) {
                 throw new ValidacionException("No se puede devolver " + e.getValue()
