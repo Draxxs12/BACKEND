@@ -124,7 +124,7 @@ class CompraServiceTest {
     }
 
     @Test
-    void guardar_volverAGuardarUnaCompraYaRecibidaNoDuplicaElStock() {
+    void guardar_noPermiteModificarUnaCompraYaRecibida() {
         Producto p = producto(5, 10);
         Compra anterior = new Compra();
         anterior.setId(1);
@@ -133,10 +133,52 @@ class CompraServiceTest {
 
         Compra c = compra(Compra.Estado.Recibida, p, 5, "20.00");
         c.setId(1);
-        service.guardar(c);
 
-        assertEquals(10, p.getStock());
+        assertThrows(ValidacionException.class, () -> service.guardar(c));
+        verify(compraRepository, never()).save(any(Compra.class));
         verify(productoRepository, never()).save(any());
+    }
+
+    @Test
+    void guardar_compraInexistenteDevuelveErrorDeRecursoNoEncontrado() {
+        Compra c = compra(Compra.Estado.Pendiente, producto(5, 10), 1, "20.00");
+        c.setId(404);
+
+        assertThrows(com.ferreteria.v1.exceptions.RecursoNoEncontradoException.class,
+                () -> service.guardar(c));
+        verify(compraRepository, never()).save(any(Compra.class));
+    }
+
+    @Test
+    void eliminar_noPermiteEliminarUnaCompraYaRecibida() {
+        Compra anterior = new Compra();
+        anterior.setId(1);
+        anterior.setEstado(Compra.Estado.Recibida);
+        when(compraRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(anterior));
+
+        assertThrows(ValidacionException.class, () -> service.eliminar(1));
+        verify(compraRepository, never()).delete(any(Compra.class));
+    }
+
+    @Test
+    void eliminar_compraPendienteEliminaLaCompra() {
+        Compra anterior = new Compra();
+        anterior.setId(2);
+        anterior.setEstado(Compra.Estado.Pendiente);
+        when(compraRepository.buscarPorIdParaActualizar(2)).thenReturn(Optional.of(anterior));
+
+        service.eliminar(2);
+
+        verify(compraRepository).delete(anterior);
+    }
+
+    @Test
+    void eliminar_compraInexistenteDevuelveErrorDeRecursoNoEncontrado() {
+        when(compraRepository.buscarPorIdParaActualizar(404)).thenReturn(Optional.empty());
+
+        assertThrows(com.ferreteria.v1.exceptions.RecursoNoEncontradoException.class,
+                () -> service.eliminar(404));
+        verify(compraRepository, never()).delete(any(Compra.class));
     }
 
     // ───────────── CP-095 / H0059: movimiento de stock (se espera ROJO: CompraService no lo registra) ─────────────
