@@ -254,7 +254,7 @@ class VentaServiceTest {
         Venta v = new Venta();
         v.setId(1);
         v.setEstado(Venta.EstadoVenta.Anulada);
-        when(ventaRepository.findById(1)).thenReturn(Optional.of(v));
+        when(ventaRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(v));
 
         assertThrows(RuntimeException.class, () -> service.anular(1, new Usuario()));
         verify(productoRepository, never()).save(any());
