@@ -45,9 +45,9 @@ jobs:
       - name: Análisis de dependencias OWASP
         run: |
           if [ -n "$NVD_API_KEY" ]; then
-            ./mvnw -B org.owasp:dependency-check-maven:10.0.4:check -DnvdApiKey="$NVD_API_KEY"
+            ./mvnw -B org.owasp:dependency-check-maven:13.0.0:check -DnvdApiKey="$NVD_API_KEY"
           else
-            ./mvnw -B org.owasp:dependency-check-maven:10.0.4:check
+            ./mvnw -B org.owasp:dependency-check-maven:13.0.0:check
           fi
       - name: Subir reportes de calidad
         if: always()
