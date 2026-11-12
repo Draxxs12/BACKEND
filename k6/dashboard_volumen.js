@@ -10,16 +10,21 @@ export const options = {
   thresholds: {
     'http_req_duration{endpoint:ventas}': ['p(95)<1500'],
     'http_req_duration{endpoint:productos}': ['p(95)<1500'],
+    'http_req_duration{endpoint:compras}': ['p(95)<1500'],
     http_req_failed: ['rate<0.01'],
   },
 };
 
 export default function () {
-  const g = http.batch([
+  const respuestas = http.batch([
     ['GET', `${BASE_URL}/api/ventas`, null, { ...cabeceras(), tags: { endpoint: 'ventas' } }],
     ['GET', `${BASE_URL}/api/productos`, null, { ...cabeceras(), tags: { endpoint: 'productos' } }],
     ['GET', `${BASE_URL}/api/compras`, null, { ...cabeceras(), tags: { endpoint: 'compras' } }],
   ]);
-  g.forEach((r) => check(r, { '200': (x) => x.status === 200 }));
+
+  check(respuestas[0], { 'ventas responde HTTP 200': (r) => r.status === 200 });
+  check(respuestas[1], { 'productos responde HTTP 200': (r) => r.status === 200 });
+  check(respuestas[2], { 'compras responde HTTP 200': (r) => r.status === 200 });
+
   sleep(2);
 }
