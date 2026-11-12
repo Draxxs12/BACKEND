@@ -2,6 +2,7 @@ package com.ferreteria.v1.services;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 import java.math.BigDecimal;
@@ -49,8 +50,9 @@ class DevolucionServiceVinculoTest {
     void preparar() {
         venta = new Venta();
         venta.setId(1);
-        when(ventaRepository.findById(1)).thenReturn(Optional.of(venta));
+        when(ventaRepository.buscarPorIdParaActualizar(1)).thenReturn(Optional.of(venta));
         when(devolucionRepository.count()).thenReturn(0L);
+        when(devolucionRepository.cantidadDevueltaPorVentaYProducto(anyInt(), anyInt())).thenReturn(0L);
         when(devolucionRepository.save(any(Devolucion.class))).thenAnswer(i -> i.getArgument(0));
     }
 
@@ -58,7 +60,7 @@ class DevolucionServiceVinculoTest {
         Producto p = new Producto();
         p.setId(id);
         p.setStock(stock);
-        when(productoRepository.findById(id)).thenReturn(Optional.of(p));
+        when(productoRepository.buscarPorIdParaActualizar(id)).thenReturn(Optional.of(p));
         return p;
     }
 
