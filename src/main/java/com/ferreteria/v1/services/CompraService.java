@@ -47,11 +47,8 @@ public class CompraService {
             if (anterior != null) estadoAnterior = anterior.getEstado();
         }
 
-        if (esNueva && (compra.getNumeroOrden() == null || compra.getNumeroOrden().isEmpty())) {
-            long count = compraRepository.count();
-            String numeroOrden = String.format("OC-%05d", count + 1);
-            compra.setNumeroOrden(numeroOrden);
-        }
+        boolean generarNumeroOrden = esNueva
+                && (compra.getNumeroOrden() == null || compra.getNumeroOrden().isBlank());
 
         List<DetalleCompra> detalles = compra.getDetalles();
         BigDecimal subtotal = BigDecimal.ZERO;
@@ -71,7 +68,15 @@ public class CompraService {
         compra.setIgv(igv);
         compra.setTotal(total);
 
-        Compra guardada = compraRepository.save(compra);
+        Compra guardada;
+        if (generarNumeroOrden) {
+            // Primero se obtiene el ID de la base de datos para evitar colisiones por count() + 1.
+            guardada = compraRepository.saveAndFlush(compra);
+            guardada.setNumeroOrden(String.format("OC-%05d", guardada.getId()));
+            guardada = compraRepository.save(guardada);
+        } else {
+            guardada = compraRepository.save(compra);
+        }
 
         boolean debeAumentarStock =
             guardada.getEstado() == Estado.Recibida &&
