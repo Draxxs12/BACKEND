@@ -11,7 +11,7 @@ on:
         required: true
         default: carga
         type: choice
-        options: [humo, carga, pico, estres, reportes]
+        options: [humo, carga, pico, concurrencia, estres]
 
 jobs:
   rendimiento:
@@ -33,6 +33,7 @@ jobs:
       # Cuenta efímera creada en la base de datos aislada de este job.
       EMAIL: ci-admin@ferreteria.test
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: 'true'
+      ESCENARIO: ${{ github.event.inputs.escenario || (github.event_name == 'schedule' && 'carga' || 'humo') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -83,10 +84,21 @@ jobs:
             echo "No se pudo preparar el usuario administrador efímero (rol encontrado: ${ROL:-ninguno})."
             exit 1
           fi
-      - name: Preparar el producto de prueba (stock alto para no agotarlo durante la carga)
+      - name: Preparar el producto de prueba
         env:
           MYSQL_PWD: pruebas
-        run: mysql --protocol=TCP -h127.0.0.1 -uroot tienda_db -e "UPDATE productos SET stock = 1000000 WHERE id = 1;"
+        run: |
+          if [ "$ESCENARIO" = "concurrencia" ]; then
+            # El entorno es efímero: registrar la línea base permite validar solo
+            # los movimientos generados por esta ejecución.
+            mysql --protocol=TCP -N -h127.0.0.1 -uroot tienda_db -e "SELECT COUNT(*) FROM detalle_venta WHERE producto_id = 1;" > ventas_antes.txt
+            mysql --protocol=TCP -N -h127.0.0.1 -uroot tienda_db -e "SELECT COUNT(*) FROM inventario WHERE producto_id = 1 AND tipo = 'Salida';" > salidas_antes.txt
+            echo "VENTAS_ANTES=$(cat ventas_antes.txt)" >> "$GITHUB_ENV"
+            echo "SALIDAS_ANTES=$(cat salidas_antes.txt)" >> "$GITHUB_ENV"
+            mysql --protocol=TCP -h127.0.0.1 -uroot tienda_db -e "UPDATE productos SET stock = 50 WHERE id = 1;"
+          else
+            mysql --protocol=TCP -h127.0.0.1 -uroot tienda_db -e "UPDATE productos SET stock = 1000000 WHERE id = 1;"
+          fi
       - uses: grafana/setup-k6-action@v1
       - name: Ejecutar escenario k6
         env:
@@ -94,16 +106,29 @@ jobs:
           CLIENTE_ID: '1'
           USUARIO_ID: '1'
         run: |
-          ESC="${{ github.event.inputs.escenario || (github.event_name == 'schedule' && 'carga' || 'humo') }}"
-          case "$ESC" in
-            humo)   FILE=k6/humo.js ;;
-            carga)  FILE=k6/busqueda_productos.js ;;
-            pico)   FILE=k6/venta_pico.js ;;
-            estres) FILE=k6/estres.js ;;
-            reportes) FILE=k6/reportes_volumen.js ;;
-            *) echo "Escenario no reconocido: $ESC"; exit 1 ;;
+          case "$ESCENARIO" in
+            humo)         FILE=k6/humo.js ;;
+            carga)        FILE=k6/busqueda_productos.js ;;
+            pico)         FILE=k6/venta_pico.js ;;
+            estres)       FILE=k6/estres.js ;;
+            concurrencia) FILE=k6/stock_concurrente.js ;;
+            *) echo "Escenario no reconocido: $ESCENARIO"; exit 1 ;;
           esac
           k6 run --summary-export=resumen-k6.json "$FILE"
+      - name: Verificar invariantes de stock concurrente (HU-S4-03)
+        if: env.ESCENARIO == 'concurrencia'
+        env:
+          MYSQL_PWD: pruebas
+        run: |
+          STOCK=$(mysql --protocol=TCP -N -h127.0.0.1 -uroot tienda_db -e "SELECT stock FROM productos WHERE id = 1;")
+          VENTAS=$(mysql --protocol=TCP -N -h127.0.0.1 -uroot tienda_db -e "SELECT COUNT(*) FROM detalle_venta WHERE producto_id = 1;")
+          SALIDAS=$(mysql --protocol=TCP -N -h127.0.0.1 -uroot tienda_db -e "SELECT COUNT(*) FROM inventario WHERE producto_id = 1 AND tipo = 'Salida';")
+          VENTAS_NUEVAS=$((VENTAS - VENTAS_ANTES))
+          SALIDAS_NUEVAS=$((SALIDAS - SALIDAS_ANTES))
+          echo "Stock final: $STOCK; ventas nuevas: $VENTAS_NUEVAS; salidas nuevas: $SALIDAS_NUEVAS"
+          test "$STOCK" = "0"
+          test "$VENTAS_NUEVAS" = "50"
+          test "$SALIDAS_NUEVAS" = "50"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

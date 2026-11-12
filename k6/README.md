@@ -37,7 +37,11 @@ El token dura 4 h (el backend usa 8 h). Para la resistencia de 8 h, genera uno c
 
 `venta_pico.js`, `estres.js` y `resistencia.js` venden el mismo producto muchas veces: antes de correrlos sube su stock (`UPDATE productos SET stock = 1000000 WHERE id = 1;`) o se agotará y los rechazos contarán como errores.
 
-## Ejecutar HU-S4-06 (reportes)\nEn GitHub Actions, abre **Rendimiento → Run workflow → escenario `reportes`**. El job usa MySQL efímero y un JWT de administrador; mide por separado `/api/reportes/libro-mayor` y `/api/reportes/stock` durante 2 minutos con 10 usuarios virtuales. Los umbrales iniciales son p95 < 2 s por endpoint y errores < 1 %. Para validar el comportamiento con volumen, carga antes un dataset representativo de ventas, compras y productos en un entorno aislado; el escenario no crea datos ni modifica registros. Conserva el artefacto `reportes-rendimiento` como evidencia.\n\n## Verificación SQL de HU-S4-03 (después de `stock_concurrente.js`)
+## Ejecutar HU-S4-03 desde GitHub Actions
+
+En **Actions → Rendimiento → Run workflow**, selecciona `concurrencia`. El job prepara el producto `id = 1` con stock 50, registra los conteos iniciales, ejecuta 100 solicitudes simultáneas de una unidad y valida automáticamente que queden 50 ventas rechazadas, stock 0, 50 detalles nuevos y 50 movimientos de salida nuevos. Si cualquiera de estas invariantes no se cumple, el job falla. Esta ejecución usa una base MySQL efímera de CI; no modifica datos de producción.
+
+## Verificación SQL de HU-S4-03 (después de `stock_concurrente.js`)
 Antes de ejecutar deja el producto con stock **exactamente 50** (`UPDATE productos SET stock = 50 WHERE id = 1;`). Después:
 
 ```sql
@@ -49,7 +53,7 @@ SELECT COUNT(*) FROM inventario WHERE producto_id = 1 AND tipo = 'Salida';     -
 `VentaController` convierte **cualquier** `RuntimeException` en HTTP 400. Por eso el script cuenta como "rechazo" tanto el stock insuficiente como un posible choque de número de comprobante (`numero_comprobante` es único) o un tiempo de espera del bloqueo. Si `ventas_confirmadas` no llega a 50 aunque el stock alcanzaba, el árbitro es el SQL de arriba y el registro del backend.
 
 ## Lo que falta decidir o construir
-- **Correo simulado (HU-S4-01 y 08):** el login envía el correo de forma síncrona y `EmailService` no permite cambiar la URL de Gmail. Para `login_carga.js` hace falta un `EmailService` falso en un perfil de pruebas; el mapeo `gmail-envio-lento.json` queda listo para cuando exista.
+- **Correo simulado (HU-S4-01 y 08):** `EmailService` ahora depende de `CodigoEmailSender`. En producción se usa `GmailCodigoEmailSender`; al activar `SPRING_PROFILES_ACTIVE=test` se carga `TestCodigoEmailSender`, que simula la entrega sin contactar Gmail ni registrar códigos MFA. Para ejecutar `login_carga.js`, inicia el backend con ese perfil y define `EMAIL` y `PASSWORD` de un usuario administrador de la base de pruebas. El escenario solo mide la respuesta del login; no valida la recepción real del correo.
 - **Groq:** `ia.api.url` sí es configurable: apúntalo a WireMock (`http://localhost:8089/openai/v1/chat/completions`).
 - **Resistencia de 8 h:** los ejecutores gratuitos de GitHub limitan cada job a 6 h; ejecútala en una máquina dedicada.
 - **SonarCloud:** reemplaza `TU_ORGANIZACION` y `TU_PROYECTO_BACKEND` en `sonar-project.properties` y agrega el paso de análisis cuando tengas el `SONAR_TOKEN`.
