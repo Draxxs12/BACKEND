@@ -42,12 +42,24 @@ jobs:
         run: ./mvnw -B verify
       - name: Análisis estático SpotBugs y FindSecBugs
         run: ./mvnw -B spotbugs:check
+      - name: Preparar clave diaria de caché OWASP
+        id: owasp-cache-date
+        run: echo "date=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+      - name: Restaurar base de datos de vulnerabilidades OWASP
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/dependency-check-data
+          key: ${{ runner.os }}-owasp-dc-13.0.0-${{ hashFiles('**/pom.xml') }}-${{ steps.owasp-cache-date.outputs.date }}
+          restore-keys: |
+            ${{ runner.os }}-owasp-dc-13.0.0-${{ hashFiles('**/pom.xml') }}-
       - name: Análisis de dependencias OWASP
         run: |
+          DATA_DIR="$RUNNER_TEMP/dependency-check-data"
+          mkdir -p "$DATA_DIR"
           if [ -n "$NVD_API_KEY" ]; then
-            ./mvnw -B org.owasp:dependency-check-maven:13.0.0:check -DnvdApiKey="$NVD_API_KEY"
+            ./mvnw -B org.owasp:dependency-check-maven:13.0.0:check -DnvdApiKey="$NVD_API_KEY" -DdataDirectory="$DATA_DIR" -DnvdValidForHours=24
           else
-            ./mvnw -B org.owasp:dependency-check-maven:13.0.0:check
+            ./mvnw -B org.owasp:dependency-check-maven:13.0.0:check -DdataDirectory="$DATA_DIR" -DnvdValidForHours=24
           fi
       - name: Subir reportes de calidad
         if: always()
