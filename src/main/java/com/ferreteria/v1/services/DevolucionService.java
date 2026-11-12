@@ -45,8 +45,11 @@ public class DevolucionService {
                                 Devolucion.TipoReembolso tipoReembolso,
                                 List<DetalleDevolucion> detalles, Usuario usuario) {
 
-        Venta venta = ventaRepository.findById(ventaId)
+        Venta venta = ventaRepository.buscarPorIdParaActualizar(ventaId)
                 .orElseThrow(() -> new RuntimeException("Venta no encontrada id=" + ventaId));
+        if (venta.getEstado() != Venta.EstadoVenta.Completada) {
+            throw new ValidacionException("No se puede registrar una devolución de una venta anulada.");
+        }
 
         validarDetalles(ventaId, detalles);
 
@@ -62,7 +65,7 @@ public class DevolucionService {
         BigDecimal total = BigDecimal.ZERO;
 
         for (DetalleDevolucion d : detalles) {
-            Producto producto = productoRepository.findById(d.getProducto().getId())
+            Producto producto = productoRepository.buscarPorIdParaActualizar(d.getProducto().getId())
                     .orElseThrow(() -> new RuntimeException(
                             "Producto no encontrado id=" + d.getProducto().getId()));
 
@@ -100,6 +103,10 @@ public class DevolucionService {
      * cantidad mayor que 0 y que no supere lo vendido en esa venta.
      */
     private void validarDetalles(Integer ventaId, List<DetalleDevolucion> detalles) {
+        if (detalles == null || detalles.isEmpty()) {
+            throw new ValidacionException("Debes incluir al menos un producto en la devolución.");
+        }
+
         Map<Integer, Integer> vendido = new HashMap<>();
         for (DetalleVenta dv : detalleVentaRepository.findByVentaId(ventaId)) {
             vendido.merge(dv.getProducto().getId(), dv.getCantidad(), Integer::sum);
@@ -107,6 +114,9 @@ public class DevolucionService {
 
         Map<Integer, Integer> aDevolver = new HashMap<>();
         for (DetalleDevolucion d : detalles) {
+            if (d == null || d.getProducto() == null || d.getProducto().getId() == null) {
+                throw new ValidacionException("Debes seleccionar un producto válido en cada línea de devolución.");
+            }
             if (d.getCantidad() == null || d.getCantidad() <= 0) {
                 throw new ValidacionException("La cantidad a devolver debe ser mayor que 0.");
             }
@@ -115,10 +125,14 @@ public class DevolucionService {
 
         for (Map.Entry<Integer, Integer> e : aDevolver.entrySet()) {
             int max = vendido.getOrDefault(e.getKey(), 0);
-            if (e.getValue() > max) {
+            Long cantidadRegistrada = devolucionRepository
+                    .cantidadDevueltaPorVentaYProducto(ventaId, e.getKey());
+            long yaDevuelto = cantidadRegistrada == null ? 0L : cantidadRegistrada;
+            long totalSolicitado = yaDevuelto + e.getValue();
+            if (max == 0 || totalSolicitado > max) {
                 throw new ValidacionException("No se puede devolver " + e.getValue()
-                        + " unidad(es) del producto id=" + e.getKey()
-                        + ": en la venta solo se vendieron " + max + ".");
+                        + " unidad(es) adicionales del producto id=" + e.getKey()
+                        + ": vendido=" + max + ", ya devuelto=" + yaDevuelto + ".");
             }
         }
     }

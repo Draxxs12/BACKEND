@@ -57,7 +57,7 @@ public class VentaService {
     /** Anula una venta: devuelve el stock al inventario y la marca como Anulada. */
     @Transactional
     public Venta anular(Integer id, Usuario usuarioActual) {
-        Venta venta = ventaRepository.findById(id)
+        Venta venta = ventaRepository.buscarPorIdParaActualizar(id)
                 .orElseThrow(() -> new RuntimeException("Venta no encontrada id=" + id));
         if (venta.getEstado() == Venta.EstadoVenta.Anulada) {
             throw new RuntimeException("La venta ya está anulada.");
