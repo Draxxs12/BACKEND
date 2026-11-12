@@ -4,6 +4,8 @@ import com.ferreteria.v1.models.Venta;
 import com.ferreteria.v1.repositories.projections.VentaReporteProjection;
 import java.time.LocalDateTime;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -11,6 +13,10 @@ import java.util.List;
 
 @Repository
 public interface VentaRepository extends JpaRepository<Venta, Integer> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT v FROM Venta v WHERE v.id = :id")
+    java.util.Optional<Venta> buscarPorIdParaActualizar(@Param("id") Integer id);
+
     List<Venta> findByClienteId(Integer clienteId);
     List<Venta> findByUsuarioId(Integer usuarioId);
     List<Venta> findByEstado(Venta.EstadoVenta estado);
