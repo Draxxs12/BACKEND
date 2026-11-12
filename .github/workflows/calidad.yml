@@ -11,6 +11,9 @@ permissions:
 jobs:
   pruebas-y-analisis:
     runs-on: ubuntu-latest
+    concurrency:
+      group: dependency-check-nvd-${{ github.repository }}
+      cancel-in-progress: false
     services:
       mysql:
         image: mysql:8.0
@@ -57,9 +60,9 @@ jobs:
           DATA_DIR="$RUNNER_TEMP/dependency-check-data"
           mkdir -p "$DATA_DIR"
           if [ -n "$NVD_API_KEY" ]; then
-            ./mvnw -B org.owasp:dependency-check-maven:13.0.0:check -DnvdApiKey="$NVD_API_KEY" -DdataDirectory="$DATA_DIR" -DnvdValidForHours=24
+            ./mvnw -B org.owasp:dependency-check-maven:13.0.0:check -DnvdApiKeyEnvironmentVariable=NVD_API_KEY -DnvdMaxRetryCount=20 -DnvdApiDelay=6000 -DdataDirectory="$DATA_DIR" -DnvdValidForHours=24
           else
-            ./mvnw -B org.owasp:dependency-check-maven:13.0.0:check -DdataDirectory="$DATA_DIR" -DnvdValidForHours=24
+            ./mvnw -B org.owasp:dependency-check-maven:13.0.0:check -DnvdMaxRetryCount=20 -DnvdApiDelay=8000 -DdataDirectory="$DATA_DIR" -DnvdValidForHours=24
           fi
       - name: Subir reportes de calidad
         if: always()
