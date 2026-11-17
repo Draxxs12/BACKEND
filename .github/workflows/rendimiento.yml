@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: '17', cache: maven }
+        with: { distribution: temurin, java-version: '25', cache: maven }
       - name: Token de administrador para las pruebas (sin código MFA)
         run: |
           TOKEN=$(python3 k6/generar_token.py)

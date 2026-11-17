@@ -36,8 +36,7 @@ public class SecurityConfig {
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService);
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
     }
@@ -50,13 +49,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // La API autentica con JWT enviado en Authorization, no con cookies de sesión.
-            // Por eso se excluyen las rutas API de CSRF sin desactivar la protección global.
             .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Health/readiness son probes operativas: solo exponen el estado agregado.
                 .requestMatchers("/actuator/health/**").permitAll()
                 .requestMatchers(
                     "/api/auth/login",
@@ -66,24 +62,18 @@ public class SecurityConfig {
                     "/api/auth/reset-password"
                 ).permitAll()
                 .requestMatchers("/api/auth/me", "/api/auth/change-password/**").authenticated()
-
-                // Administración: usuarios, roles, configuración y reportes.
                 .requestMatchers(
                     "/api/usuarios/**",
                     "/api/roles/**",
                     "/api/configuracion/**",
                     "/api/reportes/**"
                 ).hasRole("ADMINISTRADOR")
-
-                // Ventas y atención al cliente.
                 .requestMatchers(
                     "/api/ventas/**",
                     "/api/devoluciones/**",
                     "/api/caja/**",
                     "/api/clientes/**"
                 ).hasAnyRole("ADMINISTRADOR", "RECEPCIONISTA")
-
-                // Inventario y abastecimiento.
                 .requestMatchers(
                     "/api/productos/**",
                     "/api/categorias/**",
@@ -91,12 +81,10 @@ public class SecurityConfig {
                     "/api/compras/**",
                     "/api/proveedores/**"
                 ).hasAnyRole("ADMINISTRADOR", "ALMACENERO")
-
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-
         return http.build();
     }
 
@@ -107,7 +95,6 @@ public class SecurityConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(false);
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
